@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
 import gc
+from torchvision.models import resnet50, ResNet50_Weights
+
+#--------------------------------------------------------------------------------------------------------------------------
+# ResNet from Scratch
+#--------------------------------------------------------------------------------------------------------------------------
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride = 1, downsample = None):
