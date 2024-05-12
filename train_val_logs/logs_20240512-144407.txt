@@ -1,0 +1,10 @@
+Epoch [1/10], Training Loss: 0.5192, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [2/10], Training Loss: 0.3857, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [3/10], Training Loss: 0.2249, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [4/10], Training Loss: 0.1130, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [5/10], Training Loss: 0.0540, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [6/10], Training Loss: 0.0261, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [7/10], Training Loss: 0.0132, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [8/10], Training Loss: 0.0071, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [9/10], Training Loss: 0.0040, Validation Loss: 0.0000, Accuracy: 0.00%
+Epoch [10/10], Training Loss: 0.0024, Validation Loss: 0.0000, Accuracy: 0.00%
