@@ -2,6 +2,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import os
 from PIL import Image
+import torch
 
 class CustomImageDataset(Dataset):
     def __init__(self, root_dir):
