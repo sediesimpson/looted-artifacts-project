@@ -116,9 +116,10 @@ def main():
     root_dir = '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 4'
     dataset = CustomImageDataset(root_dir)
 
-    train_size = int(0.6 * len(dataset))  # 60% of data for training
-    val_size = int(0.2 * len(dataset))    # 20% of data for validation
-    test_size = len(dataset) - train_size - val_size  # Remaining data for testing
+    train_size = int(0.8 * len(dataset))
+    val_size = int(0.1 * len(dataset))
+    test_size = int(0.1 * len(dataset))
+   # test_size = len(dataset) - train_size - val_size
 
     # Create indices for the splits
     indices = list(range(len(dataset)))
