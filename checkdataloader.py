@@ -6,7 +6,7 @@ import torch
 from dataloader import CustomImageDataset
 
 # Define your dataset
-root_dir =  '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 2'
+root_dir =  '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 4'
 custom_dataset = CustomImageDataset(root_dir)
 
 # Define DataLoader
