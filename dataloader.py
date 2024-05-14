@@ -4,15 +4,20 @@ import os
 from PIL import Image
 import torch
 
+class AdjustLabels(object):
+    def __call__(self, label):
+        return label - 1
+
 class CustomImageDataset(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
         self.classes = sorted(os.listdir(root_dir))
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
         self.img_paths = self.get_image_paths()
+        self.adjust_labels = AdjustLabels()
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
-            transforms.ToTensor(),
+            transforms.ToTensor()
         ])
 
     def get_image_paths(self):
@@ -32,4 +37,5 @@ class CustomImageDataset(Dataset):
         img_path, cls_name = self.img_paths[idx]
         image = Image.open(img_path).convert('RGB')
         label = self.class_to_idx[cls_name]
+        label = self.adjust_labels(label)
         return self.transform(image), label
