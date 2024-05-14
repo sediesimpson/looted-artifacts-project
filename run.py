@@ -1,7 +1,9 @@
 #--------------------------------------------------------------------------------------------------------------------------
 # Packages needed
 #--------------------------------------------------------------------------------------------------------------------------
-from torchvision.models.resnet import resnet50
+from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import efficientnet_b6, EfficientNet_B6_Weights
+import torchvision.models as models
 from dataloader import CustomImageDataset
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 from models import ResNet, ResidualBlock
@@ -17,209 +19,140 @@ import numpy as np
 import gc
 from main import args
 import time
-#--------------------------------------------------------------------------------------------------------------------------
-# Generating dataset
-#--------------------------------------------------------------------------------------------------------------------------
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision.models import resnet50, ResNet50_Weights
+from dataloader import AdjustLabels
 
-root_dir = '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 3'
-dataset = CustomImageDataset(root_dir)
+def train_epoch(model, train_loader, criterion, optimizer, device):
+    model.train()
+    running_loss = 0.0
+    total_step = len(train_loader)
+    total_loss = 0.0
+    for i, (images, labels) in enumerate(train_loader):
+        images = images.to(device)
+        labels = labels.to(device)
 
-train_size = int(0.6 * len(dataset))  # 60% of data for training
-val_size = int(0.2 * len(dataset))    # 20% of data for validation
-test_size = len(dataset) - train_size - val_size  # Remaining data for testing
+        # Forward pass
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
-# Create indices for the splits
-indices = list(range(len(dataset)))
-train_indices = indices[:train_size]
-val_indices = indices[train_size:train_size+val_size]
-test_indices = indices[train_size+val_size:]
+        # Backward and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-# Create SubsetRandomSampler objects for each set
-train_sampler = SubsetRandomSampler(train_indices)
-val_sampler = SubsetRandomSampler(val_indices)
-test_sampler = SubsetRandomSampler(test_indices)
+        running_loss += loss.item()
+        total_loss += loss.item()
 
-# Create DataLoader objects using the samplers
-train_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=train_sampler)
-valid_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=val_sampler)
-test_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=test_sampler)
+        if (i+1) % 100 == 0:
+            print('Step [{}/{}], Loss: {:.4f}'.format(i+1, total_step, running_loss / 100))
+            running_loss = 0.0
 
-#--------------------------------------------------------------------------------------------------------------------------
-# Training Loop for ResNet from Scratch
-#--------------------------------------------------------------------------------------------------------------------------
-# num_classes = 10
-# num_epochs = 10
-# batch_size = 16
-# learning_rate = 0.01
+    average_loss = total_loss / total_step
+    print('Training Loss: {:.4f}'.format(average_loss))
+    return average_loss
 
-# model = ResNet(ResidualBlock, [3, 4, 6, 3]).to(device)
+def validate(model, valid_loader, criterion, device):
+    model.eval()
+    validation_loss = 0.0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in valid_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            validation_loss += loss.item()
 
-# # Loss and optimizer
-# criterion = nn.CrossEntropyLoss()
-# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay = 0.001, momentum = 0.9)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-# total_step = len(train_loader)
+    validation_loss /= len(valid_loader)
+    accuracy = 100.0 * correct / total
+    print('Validation Loss: {:.4f}, Validation Accuracy: {:.2f}%'.format(validation_loss, accuracy))
+    return validation_loss, accuracy
 
-# for epoch in tqdm(range(num_epochs)):
-#     for i, (images, labels) in enumerate(train_loader):
-#         # Move tensors to the configured device
-#         images = images.to(device)
-#         labels = labels.to(device)
+def test(model, test_loader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    accuracy = 100.0 * correct / total
+    print('Accuracy of the network on the test images: {:.2f}%'.format(accuracy))
+    return accuracy
+
+def main():
+
+    # Hyperparameters
+    num_epochs = 20
+    batch_size = 32
+    learning_rate = 0.01
+
+    # Device configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Model, criterion, optimizer
+    resnet50 = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+    num_features = resnet50.fc.in_features
+    num_classes = 3
+    resnet50.fc = nn.Linear(num_features, num_classes)
+    model = resnet50.to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+
+    # Data loaders
+    root_dir = '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 4'
+    dataset = CustomImageDataset(root_dir)
+
+    train_size = int(0.6 * len(dataset))  # 60% of data for training
+    val_size = int(0.2 * len(dataset))    # 20% of data for validation
+    test_size = len(dataset) - train_size - val_size  # Remaining data for testing
+
+    # Create indices for the splits
+    indices = list(range(len(dataset)))
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:train_size+val_size]
+    test_indices = indices[train_size+val_size:]
+
+    # Create SubsetRandomSampler objects for each set
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
+
+    # Create DataLoader objects using the samplers
+    train_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=train_sampler)
+    valid_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=val_sampler)
+    test_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=test_sampler)
 
 
-#         # Forward pass
-#         outputs = model(images)
-#         loss = criterion(outputs, labels)
-
-
-#         # Backward and optimize
-#         optimizer.zero_grad()
-#         loss.backward()
-#         optimizer.step()
-#         del images, labels, outputs
-#         torch.cuda.empty_cache()
-#         gc.collect()
-
-#     print ('Epoch [{}/{}], Loss: {:.4f}'
-#                    .format(epoch+1, num_epochs, loss.item()))
-
-#     # Validation
-#     with torch.no_grad():
-#         correct = 0
-#         total = 0
-#         for images, labels in valid_loader:
-#             images = images.to(device)
-#             labels = labels.to(device)
-#             outputs = model(images)
-#             _, predicted = torch.max(outputs.data, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#             del images, labels, outputs
-
-#         print('Accuracy of the network on the {} validation images: {} %'.format(130, 100 * correct / total))
-
-# with torch.no_grad():
-#     correct = 0
-#     total = 0
-#     for images, labels in test_loader:
-#         images = images.to(device)
-#         labels = labels.to(device)
-#         outputs = model(images)
-#         _, predicted = torch.max(outputs.data, 1)
-#         total += labels.size(0)
-#         correct += (predicted == labels).sum().item()
-#         del images, labels, outputs
-
-#     print('Accuracy of the network on the {} test images: {} %'.format(10000, 100 * correct / total))
-
-
-#--------------------------------------------------------------------------------------------------------------------------
-# Pretrained ResNet 50
-#--------------------------------------------------------------------------------------------------------------------------
-resnet50 = resnet50(pretrained=True)
-
-num_features = resnet50.fc.in_features
-num_classes = 2
-resnet50.fc = nn.Linear(num_features, num_classes)
-
-# Load model to device
-model = resnet50.to(device)
-
-def train(model, args):
-    # Generate a timestamp to include in the log file name
+# Generate a timestamp to include in the log file name
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     log_dir = "train_val_logs"
     os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
     log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay = args.weight_decay, momentum = args.momentum)
-    total_step = len(train_loader)
+    with open(log_file, 'a') as log:
+        for epoch in range(num_epochs):
+            print(f'Epoch [{epoch+1}/{num_epochs}]')
+            train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
+            val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
+            log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
 
-    train_losses = []
-    valid_losses = []
-
-
-    with open(log_file, 'w') as f:
-        for epoch in range(args.num_epochs):
-            model.train()
-            running_loss = 0
-
-            for i, (images, labels) in enumerate(train_loader):
-            # Move tensors to the configured device
-                images = images.to(device)
-                labels = labels.to(device)
+        test_accuracy = test(model, test_loader, device)
+        log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
 
 
-            # Forward pass
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-
-
-            # Backward and optimize
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-            # Keeping track of loss
-                running_loss += loss.item()
-                epoch_train_loss = running_loss / len(train_loader)
-                train_losses.append(epoch_train_loss)
-            # del images, labels, outputs
-            # torch.cuda.empty_cache()
-            # gc.collect()
-                print('Epoch [{}/{}], Training Loss: {:.4f}'.format(epoch + 1, args.num_epochs, epoch_train_loss))
-
-        #print ('Epoch [{}/{}], Loss: {:.4f}'
-                       #.format(epoch+1, args.num_epochs, loss.item()))
-
-            model.eval()  # Set model to evaluation mode
-            valid_loss = 0.0
-            correct = 0
-            total = 0
-
-        # Validation
-            with torch.no_grad():
-                correct = 0
-                total = 0
-                for images, labels in valid_loader:
-                    images = images.to(device)
-                    labels = labels.to(device)
-                    outputs = model(images)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
-
-            epoch_valid_loss = valid_loss / len(valid_loader)
-            valid_losses.append(epoch_valid_loss)
-               # del images, labels, outputs
-            accuracy = 100 * correct / total
-            print('Validation Loss: {:.4f}, Accuracy: {:.2f}%'.format(epoch_valid_loss, accuracy))
-            #print('Accuracy of the network on the {} validation images: {} %'.format(126, 100 * correct / total))
-
-            # Write to log file
-            f.write('Epoch [{}/{}], Training Loss: {:.4f}, Validation Loss: {:.4f}, Accuracy: {:.2f}%\n'
-                                .format(epoch + 1, args.num_epochs, epoch_train_loss, epoch_valid_loss, accuracy))
-        model.eval()
-        test_loss = 0
-        correct = 0
-        total = 0
-        with torch.no_grad():
-             for images, labels in test_loader:
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = model(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-                    #del images, labels, outputs
-        print('Accuracy of the network on the {} test images: {} %'.format(378, 100 * correct / total))
-
-        final_test_loss = test_loss / len(test_loader)
-        test_accuracy = 100 * correct / total
-            # Append final test loss to the log file
-    with open(log_file, 'a') as f:
-        f.write('\nFinal Test Loss: {:.4f}, Test Accuracy: {:.2f}%\n'.format(final_test_loss, test_accuracy))
-
-train(model, args)
+if __name__ == "__main__":
+    main()
