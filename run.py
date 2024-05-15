@@ -24,12 +24,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import resnet50, ResNet50_Weights
 from dataloader import AdjustLabels
+from modelcomplete import CustomResNet50, CustomClassifier, criterion, num_classes, hidden_features, learning_rate, num_epochs
+
+#--------------------------------------------------------------------------------------------------------------------------
+# Training, Validation and Testing Functions
+#--------------------------------------------------------------------------------------------------------------------------
 
 def train_epoch(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     total_step = len(train_loader)
-    total_loss = 0.0
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
@@ -44,13 +48,14 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         optimizer.step()
 
         running_loss += loss.item()
-        total_loss += loss.item()
 
-        if (i+1) % 100 == 0:
-            print('Step [{}/{}], Loss: {:.4f}'.format(i+1, total_step, running_loss / 100))
-            running_loss = 0.0
+        # this prints out the running loss after every 100 epoches
+        # if (i+1) % 100 == 0:
+        #     print('Step [{}/{}], Loss: {:.4f}'.format(i+1, total_step, running_loss / 100))
+        #     running_loss = 0.0
 
-    average_loss = total_loss / total_step
+    # Returns the average loss (this will be after every epoch)
+    average_loss = running_loss / total_step
     print('Training Loss: {:.4f}'.format(average_loss))
     return average_loss
 
@@ -95,22 +100,25 @@ def test(model, test_loader, device):
 
 def main():
 
-    # Hyperparameters
-    num_epochs = 20
-    batch_size = 32
-    learning_rate = 0.01
-
-    # Device configuration
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     # Model, criterion, optimizer
-    resnet50 = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-    num_features = resnet50.fc.in_features
-    num_classes = 3
-    resnet50.fc = nn.Linear(num_features, num_classes)
-    model = resnet50.to(device)
+    # resnet50 = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+    # num_features = resnet50.fc.in_features
+    # num_classes = 3
+    # resnet50.fc = nn.Linear(num_features, num_classes)
+    # model = resnet50.to(device)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer = optim.SGD(model.fc.parameters(), lr=learning_rate)
+
+    # Create the custom model
+    model = CustomResNet50(num_classes, hidden_features)
+
+    # Move the model to the device (CPU or GPU)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
+    # Define the loss function and the optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
 
     # Data loaders
     root_dir = '/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 4'
