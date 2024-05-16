@@ -130,7 +130,7 @@ print("Test label distribution:", test_label_counts)
 # Training, Validation and Testing Functions
 #--------------------------------------------------------------------------------------------------------------------------
 
-def train_epoch(model, train_loader, criterion, optimizer, device):
+def train(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     total_step = len(train_loader)
@@ -195,8 +195,8 @@ def test(model, test_loader, device):
 from modelcomplete import CustomResNet50, CustomClassifier
 num_classes = 3
 hidden_features = 64
-learning_rate = 0.1
-num_epochs = 5
+learning_rate = 0.01
+num_epochs = 20
 
 model = CustomResNet50(num_classes, hidden_features)
 
@@ -217,7 +217,7 @@ log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 with open(log_file, 'a') as log:
     for epoch in range(num_epochs):
         print(f'Epoch [{epoch+1}/{num_epochs}]')
-        train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
+        train_loss = train(model, train_loader, criterion, optimizer, device)
         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
 
