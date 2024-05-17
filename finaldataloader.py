@@ -4,6 +4,8 @@ import os
 from PIL import Image
 import torch
 
+# TODO
+
 class CustomImageDataset(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
