@@ -113,3 +113,4 @@ def plot_reduced_features(reduced_features, labels, save_path):
     plt.close()
 
 plot_reduced_features(reduced_features, labels_np, 'embeddings/plots/feature_vectors.png')
+#--------------------------------------------------------------------------------------------------------------------------
