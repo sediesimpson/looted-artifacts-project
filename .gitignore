@@ -1,3 +1,4 @@
 **/__pycache__
 .venv
 train_val_logs/
+slurm_la
