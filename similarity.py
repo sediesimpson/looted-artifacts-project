@@ -60,14 +60,13 @@ def extract_features(dataloader, model, device):
         for imgs, labels in tqdm(dataloader, desc="Extracting features"):
             img_tensors = []
             for img, label in zip(imgs, labels):
-                img_tensors.append(img.to(device))  # Move images to device
-
+                img_tensors.append(img.to(device))
             if not img_tensors:
                 continue
 
-            imgs = torch.stack(img_tensors)  # Convert list of tensors to a single tensor
+            imgs = torch.stack(img_tensors)
             features = model.resnet50.avgpool(model.resnet50.layer4(model.resnet50.layer3(model.resnet50.layer2(model.resnet50.layer1(model.resnet50.maxpool(model.resnet50.relu(model.resnet50.bn1(model.resnet50.conv1(imgs)))))))))
-            features = torch.flatten(features, 1)  # Flatten the features
+            features = torch.flatten(features, 1)
             features_list.append(features.cpu().numpy())
             labels_list.append(labels.numpy())
             img_paths_list.extend([path for path, _ in dataloader.dataset.img_paths])
@@ -79,12 +78,12 @@ def extract_features(dataloader, model, device):
 def extract_query_features(image_path, dataset, model, device):
     model.eval()
     with torch.no_grad():
-        foreground_image = dataset.background_subtraction(image_path)  # Apply background subtraction
+        foreground_image = dataset.background_subtraction(image_path)
         if foreground_image is None:
             return None, None
-        img_t = dataset.transform(foreground_image).unsqueeze(0).to(device)  # Preprocess, add batch dimension, and move to device
+        img_t = dataset.transform(foreground_image).unsqueeze(0).to(device)
         features = model.resnet50.avgpool(model.resnet50.layer4(model.resnet50.layer3(model.resnet50.layer2(model.resnet50.layer1(model.resnet50.maxpool(model.resnet50.relu(model.resnet50.bn1(model.resnet50.conv1(img_t)))))))))
-        features = torch.flatten(features, 1)  # Flatten the features
+        features = torch.flatten(features, 1)
 
     # Find the label of the query image
     query_label = None
@@ -115,7 +114,6 @@ def retrieve_top_n_similar(similarities, img_paths, query_image_path, n=5):
         if len(top_n_indices) == n:
             break
     return top_n_indices
-
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the preprocess function
