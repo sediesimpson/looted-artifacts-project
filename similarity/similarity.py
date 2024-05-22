@@ -10,6 +10,7 @@ import os
 from scipy.spatial.distance import cosine
 import matplotlib.pyplot as plt
 import cv2
+from sklearn.neighbors import KNeighborsClassifier
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -95,16 +96,13 @@ def extract_query_features(image_path, dataset, model, device):
     return features.cpu().numpy().squeeze(), query_label  # Remove batch dimension and convert to numpy array
 
 #------------------------------------------------------------------------------------------------------------------------
-# Define the similarity function
+# Define the similarity function and # Define top N similar function
 #------------------------------------------------------------------------------------------------------------------------
 
 def compute_similarities(query_features, dataset_features):
     similarities = [cosine(query_features, features) for features in dataset_features]
     return similarities
 
-#------------------------------------------------------------------------------------------------------------------------
-# Define top N similar function
-#------------------------------------------------------------------------------------------------------------------------
 def retrieve_top_n_similar(similarities, img_paths, query_image_path, n=5):
     sorted_indices = np.argsort(similarities)
     top_n_indices = []
@@ -114,6 +112,7 @@ def retrieve_top_n_similar(similarities, img_paths, query_image_path, n=5):
         if len(top_n_indices) == n:
             break
     return top_n_indices
+
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the preprocess function
@@ -154,40 +153,105 @@ print("Shape of extracted features:", features.shape)
 print("Shape of labels:", labels.shape)
 
 #------------------------------------------------------------------------------------------------------------------------
-# Query, similarity and top N images
+# Query, similarity and top N images using cosine similarity
 #------------------------------------------------------------------------------------------------------------------------
 query_image_path = "/Users/sedisimpson/Desktop/Dissertation Data/Test Dataset 5/Accessories/Barakat Volume-11, FZ210.JPG"
 query_features, query_label = extract_query_features(query_image_path, dataset, model, device)
-similarities = compute_similarities(query_features, features)
-n = 4
-top_n_indices = retrieve_top_n_similar(similarities, img_paths, query_image_path, n=n)
-print("Top N similar image indices:", top_n_indices)
-print("Top N similar image indices:", top_n_indices)
+# similarities = compute_similarities(query_features, features)
+# n = 4
+# top_n_indices = retrieve_top_n_similar(similarities, img_paths, query_image_path, n=n)
+# print("Top N similar image indices:", top_n_indices)
+# print("Top N similar image indices:", top_n_indices)
+
+#------------------------------------------------------------------------------------------------------------------------
+# Query, similarity and top N images using KNN classifier
+#------------------------------------------------------------------------------------------------------------------------
+from sklearn.metrics import roc_curve, auc
+
+# Compute distances for a validation set
+validation_distances = []
+validation_labels = []
+for val_img_features, val_label in zip(validation_distances, validation_labels):
+    distances, _ = knn.kneighbors([val_img_features], n_neighbors=1, return_distance=True)
+    validation_distances.append(distances[0][0])
+    validation_labels.append(val_label)
+
+
+# Define true labels and predicted scores based on distances
+true_labels = [1 if val_label == query_label else 0 for val_label in validation_labels]
+predicted_scores = [-dist for dist in validation_distances]  # Use negative distance as score
+
+# Compute ROC curve and AUC
+fpr, tpr, thresholds = roc_curve(true_labels, predicted_scores)
+roc_auc = auc(fpr, tpr)
+
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic')
+plt.legend(loc="lower right")
+plt.show()
+
+# Choose the threshold with the best balance (e.g., max TPR - FPR)
+optimal_idx = np.argmax(tpr - fpr)
+optimal_threshold = thresholds[optimal_idx]
+print(f'Optimal Threshold: {optimal_threshold}')
+
+# # Define the KNN classifier
+# knn = KNeighborsClassifier(n_neighbors=3, metric='cosine') # here we use cosine distance to make it comparable, but can also be euclidean distance
+# # Fit the knn
+# knn.fit(features, labels)
+
+# # This is used to find the top N similar images.
+# N = 3
+# distances, indices = knn.kneighbors([query_features], n_neighbors=N, return_distance=True)
+
+# # To classify it as the same object, we define a threshold
+# threshold = 0.2
+
+# # If the query image is in our database of features, it has to be below the threshold defined above. Here we check this
+# if query_image_path in [img_paths[i] for i in indices[0]] and distances[0][0] < threshold:
+#     print("Query image classified as the same object")
+#     result_label = query_label
+# else:
+#     # If not same object, do prior-based classification
+#     top_n_labels = labels[indices[0]]
+#     prior_distribution = {label: np.sum(top_n_labels == label) / N for label in np.unique(top_n_labels)}
+#     classifier_probabilities = knn.predict_proba([query_features])[0]
+#     adjusted_probabilities = {label: classifier_probabilities[i] * prior_distribution.get(label, 0)
+#                               for i, label in enumerate(knn.classes_)}
+#     # Normalize adjusted probabilities
+#     total_prob = sum(adjusted_probabilities.values())
+#     normalized_probabilities = {label: prob / total_prob for label, prob in adjusted_probabilities.items()}
+#     result_label = max(normalized_probabilities, key=normalized_probabilities.get)
+#     print("Query image classified as:", result_label)
 
 #------------------------------------------------------------------------------------------------------------------------
 # Visualise similar images
 #------------------------------------------------------------------------------------------------------------------------
 
 # Retrieve file paths and labels of the top N similar images
-top_n_image_paths = [img_paths[i] for i in top_n_indices]
-top_n_labels = [labels[i] for i in top_n_indices]
-print(top_n_image_paths)
+# top_n_image_paths = [img_paths[i] for i in top_n_indices]
+# top_n_labels = [labels[i] for i in top_n_indices]
+# print(top_n_image_paths)
 
 
-def visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n):
-    plt.figure(figsize=(15, 5))
-    # Plot the query image
-    query_img = Image.open(query_image_path).convert('RGB')
-    plt.subplot(1, n+1, 1)
-    plt.imshow(query_img)
-    plt.title(f"Query Image (Label: {query_label})")
-    plt.axis('off')
-    # Plot the top N similar images
-    for i, (img_path, label) in enumerate(zip(top_n_image_paths, top_n_labels), 1):
-        img = Image.open(img_path).convert('RGB')
-        plt.subplot(1, n+1, i+1)
-        plt.imshow(img)
-        plt.title(f"Label: {label}")
-        plt.axis('off')
-    plt.show()
-visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n)
+# def visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n):
+#     plt.figure(figsize=(15, 5))
+#     # Plot the query image
+#     query_img = Image.open(query_image_path).convert('RGB')
+#     plt.subplot(1, n+1, 1)
+#     plt.imshow(query_img)
+#     plt.title(f"Query Image (Label: {query_label})")
+#     plt.axis('off')
+#     # Plot the top N similar images
+#     for i, (img_path, label) in enumerate(zip(top_n_image_paths, top_n_labels), 1):
+#         img = Image.open(img_path).convert('RGB')
+#         plt.subplot(1, n+1, i+1)
+#         plt.imshow(img)
+#         plt.title(f"Label: {label}")
+#         plt.axis('off')
+#     plt.show()
+# visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n)
