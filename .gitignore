@@ -5,3 +5,4 @@ slurm_la
 slurm*
 logs/
 machine*
+plots/
