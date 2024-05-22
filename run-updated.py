@@ -196,31 +196,32 @@ from modelcomplete import CustomResNet50, CustomClassifier
 num_classes = 3
 hidden_features = 64
 learning_rate = 0.01
-num_epochs = 20
+num_epochs = 2
 
 model = CustomResNet50(num_classes, hidden_features)
 
 # Move the model to the device (CPU or GPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)
+print(model)
 print(device)
 
-# # Define the loss function and the optimizer
-# criterion = nn.CrossEntropyLoss()
-# optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
+# Define the loss function and the optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
 
-# # Generate a timestamp to include in the log file name
-# timestamp = time.strftime("%Y%m%d-%H%M%S")
-# log_dir = "train_val_logs"
-# os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
-# log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
+# Generate a timestamp to include in the log file name
+timestamp = time.strftime("%Y%m%d-%H%M%S")
+log_dir = "train_val_logs"
+os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
+log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 
-# with open(log_file, 'a') as log:
-#     for epoch in range(num_epochs):
-#         print(f'Epoch [{epoch+1}/{num_epochs}]')
-#         train_loss = train(model, train_loader, criterion, optimizer, device)
-#         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
-#         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
+with open(log_file, 'a') as log:
+    for epoch in range(num_epochs):
+        print(f'Epoch [{epoch+1}/{num_epochs}]')
+        train_loss = train(model, train_loader, criterion, optimizer, device)
+        val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
+        log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
 
-#     test_accuracy = test(model, test_loader, device)
-#     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
+    test_accuracy = test(model, test_loader, device)
+    log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
