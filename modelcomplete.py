@@ -39,17 +39,3 @@ class CustomResNet50(nn.Module):
         x = self.custom_classifier(x)
         return x
 
-# Number of classes in your dataset
-#num_classes = 3
-
-# Number of features in the hidden layer
-#hidden_features = 64  # Start with 256 and adjust based on validation performance
-
-#num_epochs = 3
-# Create the custom model
-#model = CustomResNet50(num_classes, hidden_features)
-
-# Define the loss function and the optimizer
-#learning_rate = 0.1  # Define your learning rate
-#criterion = nn.CrossEntropyLoss()
-#optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
