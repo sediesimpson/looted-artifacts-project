@@ -67,8 +67,8 @@ class CustomImageDataset(Dataset):
 #--------------------------------------------------------------------------------------------------------------------------
 # Define paths and parameters
 root_dir = '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4'
-batch_size = 32
-validation_split = 0.2
+batch_size = 64
+validation_split = 0.1
 shuffle_dataset = True
 random_seed = 42
 test_split = 0.1
@@ -195,8 +195,8 @@ def test(model, test_loader, device):
 from modelcomplete import CustomResNet50, CustomClassifier
 num_classes = 3
 hidden_features = 64
-learning_rate = 0.01
-num_epochs = 2
+learning_rate = 0.001
+num_epochs = 100
 
 model = CustomResNet50(num_classes, hidden_features)
 
