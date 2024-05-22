@@ -2,3 +2,6 @@
 .venv
 train_val_logs/
 slurm_la
+slurm*
+logs/
+machine*
