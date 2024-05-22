@@ -29,6 +29,7 @@ class CustomResNet50(nn.Module):
             param.requires_grad = False
 
         num_features = self.resnet50.fc.in_features  # This should be 2048 for ResNet50
+        self.resnet50.fc = nn.Identity()  # Remove the existing fully connected layer
         self.custom_classifier = CustomClassifier(num_features, hidden_features, num_classes)
 
     def forward(self, x):
