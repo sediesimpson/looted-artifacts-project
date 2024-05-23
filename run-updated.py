@@ -11,6 +11,10 @@ from torchvision.models import resnet50, ResNet50_Weights
 import time
 import torch.nn as nn
 import torch.optim as optim
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import pandas as pd
 #--------------------------------------------------------------------------------------------------------------------------
 # Building dataloader
 #--------------------------------------------------------------------------------------------------------------------------
@@ -176,6 +180,8 @@ def test(model, test_loader, device):
     model.eval()
     correct = 0
     total = 0
+    all_labels = []
+    all_predictions = []
     with torch.no_grad():
         for images, labels in test_loader:
             images = images.to(device)
@@ -185,8 +191,26 @@ def test(model, test_loader, device):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+
     accuracy = 100.0 * correct / total
     print('Accuracy of the network on the test images: {:.2f}%'.format(accuracy))
+
+      # Compute confusion matrix
+    cm = confusion_matrix(all_labels, all_predictions)
+    class_names = ['0', '1', '2']
+    # Convert to DataFrame for better visualization
+    cm_df = pd.DataFrame(cm, index=class_names, columns=class_names)
+    # Add totals
+    cm_df['Total True'] = cm_df.sum(axis=1)
+    total_pred = cm_df.sum(axis=0)
+    total_pred.name = 'Total Predicted'
+    cm_df = pd.concat([cm_df, total_pred.to_frame().T])
+    # Print confusion matrix as table
+    print("\nConfusion Matrix:")
+    print(cm_df)
+
     return accuracy
 
 #--------------------------------------------------------------------------------------------------------------------------
