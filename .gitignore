@@ -6,3 +6,4 @@ slurm*
 logs/
 machine*
 plots/
+CIFARtest/
