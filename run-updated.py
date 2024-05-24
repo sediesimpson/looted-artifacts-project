@@ -266,6 +266,7 @@ print(device)
 # Define the loss function and the optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 # Generate a timestamp to include in the log file name
 timestamp = time.strftime("%Y%m%d-%H%M%S")
@@ -278,6 +279,7 @@ with open(log_file, 'a') as log:
         print(f'Epoch [{epoch+1}/{num_epochs}]')
         train_loss = train(model, train_loader, criterion, optimizer, device)
         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
+        scheduler.step()  # Step the learning rate scheduler
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
 
     test_accuracy = test(model, test_loader, device)
