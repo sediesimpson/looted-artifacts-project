@@ -15,67 +15,95 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import pandas as pd
+from finaldataloader import CustomImageDataset
+import argparse
 #--------------------------------------------------------------------------------------------------------------------------
 # Building dataloader
 #--------------------------------------------------------------------------------------------------------------------------
 
-class CustomImageDataset(Dataset):
-    def __init__(self, root_dir):
-        self.root_dir = root_dir
-        self.classes = sorted(cls for cls in os.listdir(root_dir) if cls != '.DS_Store')
-        self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
-        self.img_paths = self.get_image_paths()
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+# class CustomImageDataset(Dataset):
+#     def __init__(self, root_dir):
+#         self.root_dir = root_dir
+#         self.classes = sorted(cls for cls in os.listdir(root_dir) if cls != '.DS_Store')
+#         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
+#         self.img_paths = self.get_image_paths()
+#         self.transform = transforms.Compose([
+#             transforms.Resize((224, 224)),
+#             transforms.ToTensor(),
+#             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#         ])
 
-    def get_image_paths(self):
-        img_paths = []
-        for cls_name in self.classes:
-            cls_path = os.path.join(self.root_dir, cls_name)
-            for root, _, files in os.walk(cls_path):
-                for file in files:
-                    if file.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and file != '.DS_Store':
-                        img_paths.append((os.path.join(root, file), cls_name))
-        return img_paths
+#     def get_image_paths(self):
+#         img_paths = []
+#         for cls_name in self.classes:
+#             cls_path = os.path.join(self.root_dir, cls_name)
+#             for root, _, files in os.walk(cls_path):
+#                 for file in files:
+#                     if file.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and file != '.DS_Store':
+#                         img_paths.append((os.path.join(root, file), cls_name))
+#         return img_paths
 
-    def __len__(self):
-        return len(self.img_paths)
+#     def __len__(self):
+#         return len(self.img_paths)
 
-    def __getitem__(self, idx):
-        img_path, cls_name = self.img_paths[idx]
-        try:
-            image = Image.open(img_path).convert('RGB')
-        except (IOError, OSError) as e:
-            print(f"Error loading image {img_path}: {e}")
-            return None
-        label = self.class_to_idx[cls_name]
-        return self.transform(image), label
+#     def __getitem__(self, idx):
+#         img_path, cls_name = self.img_paths[idx]
+#         try:
+#             image = Image.open(img_path).convert('RGB')
+#         except (IOError, OSError) as e:
+#             print(f"Error loading image {img_path}: {e}")
+#             return None
+#         label = self.class_to_idx[cls_name]
+#         return self.transform(image), label
 
-    def get_label_info(self):
-        # Method to print the labels and their corresponding indices
-        label_info = {self.class_to_idx[cls_name]: cls_name for cls_name in self.classes}
-        return label_info
+#     def get_label_info(self):
+#         # Method to print the labels and their corresponding indices
+#         label_info = {self.class_to_idx[cls_name]: cls_name for cls_name in self.classes}
+#         return label_info
 
-    def count_images_per_label(self):
-        # Method to count the number of images for each label
-        label_counts = {cls_name: 0 for cls_name in self.classes}
-        for _, cls_name in self.img_paths:
-            label_counts[cls_name] += 1
-        return label_counts
+#     def count_images_per_label(self):
+#         # Method to count the number of images for each label
+#         label_counts = {cls_name: 0 for cls_name in self.classes}
+#         for _, cls_name in self.img_paths:
+#             label_counts[cls_name] += 1
+#         return label_counts
 
+#--------------------------------------------------------------------------------------------------------------------------
+# Define argsparser
+#--------------------------------------------------------------------------------------------------------------------------
+parser = argparse.ArgumentParser(description = 'Running Baseline Models')
+
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
+parser.add_argument('--num_epochs', type=int, default=5)
+parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--weight_decay', type=int, default=0.001)
+parser.add_argument('--momentum', type=int, default=0.9)
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4")
+parser.add_argument('--validation_split', type=int, default=0.1)
+parser.add_argument('--test_split', type=int, default=0.1)
+parser.add_argument('--shuffle_dataset', type=bool, default=True)
+parser.add_argument('--random_seed', type=int, default=42)
+parser.add_argument('--num_classes', type=int, default=3)
+parser.add_argument('--hidden_features', type=int, default=512)
+args = parser.parse_args()
 #--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
 # Define paths and parameters
-root_dir = '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4'
-batch_size = 64
-validation_split = 0.1
-shuffle_dataset = True
-random_seed = 42
-test_split = 0.1
+root_dir = args.root_dir
+batch_size = args.batch_size
+validation_split = args.validation_split
+shuffle_dataset = args.shuffle_dataset
+random_seed = args.random_seed
+test_split = args.test_split
+
+
+#root_dir = '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4'
+# batch_size = 64
+# validation_split = 0.1
+# shuffle_dataset = True
+# random_seed = 42
+# test_split = 0.1
 
 # Create dataset
 dataset = CustomImageDataset(root_dir)
@@ -217,10 +245,15 @@ def test(model, test_loader, device):
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
 from modelcomplete import CustomResNet50, CustomClassifier
-num_classes = 3
-hidden_features = 64
-learning_rate = 0.001
-num_epochs = 100
+# num_classes = 3
+# hidden_features = 64
+# learning_rate = 0.001
+# num_epochs = 100
+
+num_classes = args.num_classes
+hidden_features = args.hidden_features
+learning_rate = args.lr
+num_epochs = args.num_epochs 
 
 model = CustomResNet50(num_classes, hidden_features)
 
