@@ -74,7 +74,7 @@ import argparse
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=5)
+parser.add_argument('--num_epochs', type=int, default=50)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
@@ -143,7 +143,7 @@ test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
 def count_labels_in_loader(loader, class_to_idx):
     # Initialize label_counts using the class indices directly
     label_counts = {idx: 0 for idx in class_to_idx.values()}
-    for _, labels in loader:
+    for _, labels, _ in loader:
         for label in labels.numpy():
             if label in label_counts:
                 label_counts[label] += 1
@@ -166,7 +166,7 @@ def train(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     total_step = len(train_loader)
-    for i, (images, labels) in enumerate(train_loader):
+    for i, (images, labels, _) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
         # Forward pass
@@ -188,7 +188,7 @@ def validate(model, valid_loader, criterion, device):
     correct = 0
     total = 0
     with torch.no_grad():
-        for images, labels in valid_loader:
+        for images, labels, _ in valid_loader:
             images = images.to(device)
             labels = labels.to(device)
             outputs = model(images)
@@ -210,8 +210,12 @@ def test(model, test_loader, device):
     total = 0
     all_labels = []
     all_predictions = []
+    misclassified_images = []
+    misclassified_labels = []
+    misclassified_predictions = []
+    misclassified_paths = []
     with torch.no_grad():
-        for images, labels in test_loader:
+        for images, labels, paths in test_loader:
             images = images.to(device)
             labels = labels.to(device)
             outputs = model(images)
@@ -221,6 +225,15 @@ def test(model, test_loader, device):
 
             all_labels.extend(labels.cpu().numpy())
             all_predictions.extend(predicted.cpu().numpy())
+
+            # Collect misclassified images
+            misclassified_idx = (predicted != labels).cpu().numpy().astype(bool)
+            misclassified_images.extend(images[misclassified_idx].cpu())
+            misclassified_labels.extend(labels[misclassified_idx].cpu().numpy())
+            misclassified_predictions.extend(predicted[misclassified_idx].cpu().numpy())
+            misclassified_paths.extend([paths[i] for i in range(len(paths)) if misclassified_idx[i]])
+
+
 
     accuracy = 100.0 * correct / total
     print('Accuracy of the network on the test images: {:.2f}%'.format(accuracy))
@@ -239,8 +252,27 @@ def test(model, test_loader, device):
     print("\nConfusion Matrix:")
     print(cm_df)
 
-    return accuracy
+    return accuracy, cm_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths
 
+#--------------------------------------------------------------------------------------------------------------------------
+# Function to visualise misclassified images 
+#--------------------------------------------------------------------------------------------------------------------------
+def visualise_misclassified(paths, true_labels, predicted_labels, max_images=5):
+    num_misclassified = len(paths)
+    if num_misclassified > 0:
+        fig, axes = plt.subplots(1, min(num_misclassified, max_images), figsize=(15, 3))
+        #fig.suptitle('Misclassified Images')
+        
+        for i, ax in enumerate(axes):
+            if i >= num_misclassified:
+                break
+            image = Image.open(paths[i])  # Open the original image
+            ax.imshow(image)
+            ax.set_title(f'True: {true_labels[i]} Pred: {predicted_labels[i]}')
+            ax.axis('off')
+        plt.savefig('plots/misclassified2.png')
+    else:
+        print("No misclassified images to display.")
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
@@ -281,6 +313,7 @@ with open(log_file, 'a') as log:
         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
         scheduler.step()  # Step the learning rate scheduler
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
-
-    test_accuracy = test(model, test_loader, device)
+    #test_accuracy = test(model, test_loader, device)[0]
+    test_accuracy, confusion_matrix_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths = test(model, test_loader, device)
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
+    visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)

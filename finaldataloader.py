@@ -88,7 +88,7 @@ class CustomImageDataset(Dataset):
             print(f"Error loading image {img_path}: {e}")
             return None
         label = self.class_to_idx[cls_name]
-        return self.transform(image), label
+        return self.transform(image), label, img_path
 
     def get_label_info(self):
         # Method to print the labels and their corresponding indices

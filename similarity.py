@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 import numpy as np
-#from finaldataloader import CustomImageDataset
+from finaldataloader import CustomImageDataset
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import os
@@ -105,7 +105,7 @@ def extract_query_features(image_path, dataset, model, device):
     return features.cpu().numpy().squeeze(), query_label  # Remove batch dimension and convert to numpy array
 
 #------------------------------------------------------------------------------------------------------------------------
-# Define the similarity function and # Define top N similar function
+# Define the similarity function and define top N similar function
 #------------------------------------------------------------------------------------------------------------------------
 
 def compute_similarities(query_features, dataset_features):
@@ -148,7 +148,7 @@ dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 # Model
 #------------------------------------------------------------------------------------------------------------------------
 num_classes = 3
-hidden_features = 64
+hidden_features = 512
 model = CustomResNet50(num_classes=num_classes, hidden_features=hidden_features)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -164,6 +164,8 @@ print("Shape of labels:", labels.shape)
 #------------------------------------------------------------------------------------------------------------------------
 # Query, similarity and top N images using cosine similarity
 #------------------------------------------------------------------------------------------------------------------------
+#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Bonhams, London, 1-4-2014, Lot 191.1.jpg"
+#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 17-6-2015, Lot 343.jpeg"
 query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Barakat Volume-11, FZ210.JPG"
 query_features, query_label = extract_query_features(query_image_path, dataset, model, device)
 similarities = compute_similarities(query_features, features)
@@ -262,5 +264,6 @@ def visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, 
         plt.imshow(img)
         plt.title(f"Label: {label}")
         plt.axis('off')
-    plt.savefig('plots/top images')
+    plt.savefig('plots/top images2_euclid.png')
+
 visualize_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n)
