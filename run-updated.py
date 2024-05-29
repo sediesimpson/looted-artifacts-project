@@ -17,57 +17,7 @@ from sklearn.metrics import confusion_matrix
 import pandas as pd
 from finaldataloader import CustomImageDataset
 import argparse
-#--------------------------------------------------------------------------------------------------------------------------
-# Building dataloader
-#--------------------------------------------------------------------------------------------------------------------------
-
-# class CustomImageDataset(Dataset):
-#     def __init__(self, root_dir):
-#         self.root_dir = root_dir
-#         self.classes = sorted(cls for cls in os.listdir(root_dir) if cls != '.DS_Store')
-#         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
-#         self.img_paths = self.get_image_paths()
-#         self.transform = transforms.Compose([
-#             transforms.Resize((224, 224)),
-#             transforms.ToTensor(),
-#             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-#         ])
-
-#     def get_image_paths(self):
-#         img_paths = []
-#         for cls_name in self.classes:
-#             cls_path = os.path.join(self.root_dir, cls_name)
-#             for root, _, files in os.walk(cls_path):
-#                 for file in files:
-#                     if file.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and file != '.DS_Store':
-#                         img_paths.append((os.path.join(root, file), cls_name))
-#         return img_paths
-
-#     def __len__(self):
-#         return len(self.img_paths)
-
-#     def __getitem__(self, idx):
-#         img_path, cls_name = self.img_paths[idx]
-#         try:
-#             image = Image.open(img_path).convert('RGB')
-#         except (IOError, OSError) as e:
-#             print(f"Error loading image {img_path}: {e}")
-#             return None
-#         label = self.class_to_idx[cls_name]
-#         return self.transform(image), label
-
-#     def get_label_info(self):
-#         # Method to print the labels and their corresponding indices
-#         label_info = {self.class_to_idx[cls_name]: cls_name for cls_name in self.classes}
-#         return label_info
-
-#     def count_images_per_label(self):
-#         # Method to count the number of images for each label
-#         label_counts = {cls_name: 0 for cls_name in self.classes}
-#         for _, cls_name in self.img_paths:
-#             label_counts[cls_name] += 1
-#         return label_counts
-
+import torch.nn.functional as F
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
@@ -78,32 +28,23 @@ parser.add_argument('--num_epochs', type=int, default=50)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test10classes")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
 parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--num_classes', type=int, default=3)
+parser.add_argument('--num_classes', type=int, default=10)
 parser.add_argument('--hidden_features', type=int, default=512)
 args = parser.parse_args()
 #--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
-# Define paths and parameters
 root_dir = args.root_dir
 batch_size = args.batch_size
 validation_split = args.validation_split
 shuffle_dataset = args.shuffle_dataset
 random_seed = args.random_seed
 test_split = args.test_split
-
-
-#root_dir = '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4'
-# batch_size = 64
-# validation_split = 0.1
-# shuffle_dataset = True
-# random_seed = 42
-# test_split = 0.1
 
 # Create dataset
 dataset = CustomImageDataset(root_dir)
@@ -180,6 +121,8 @@ def train(model, train_loader, criterion, optimizer, device):
     # Returns the average loss (this will be after every epoch)
     average_loss = running_loss / total_step
     print('Training Loss: {:.4f}'.format(average_loss))
+    torch.save(model.state_dict(), 'model_state_dict.pth')
+    print("Saved trained model.")
     return average_loss
 
 def validate(model, valid_loader, criterion, device):
@@ -219,6 +162,13 @@ def test(model, test_loader, device):
             images = images.to(device)
             labels = labels.to(device)
             outputs = model(images)
+
+             # Calculate softmax probabilities
+            probabilities = F.softmax(outputs, dim=1)
+            
+            # Print or log softmax probabilities if needed
+            #print(probabilities)
+
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -234,14 +184,14 @@ def test(model, test_loader, device):
             misclassified_paths.extend([paths[i] for i in range(len(paths)) if misclassified_idx[i]])
 
 
-
     accuracy = 100.0 * correct / total
     print('Accuracy of the network on the test images: {:.2f}%'.format(accuracy))
 
-      # Compute confusion matrix
+    # Compute confusion matrix
     cm = confusion_matrix(all_labels, all_predictions)
-    class_names = ['0', '1', '2']
-    # Convert to DataFrame for better visualization
+    unique_labels = np.unique(all_labels)
+    class_names = [str(label) for label in unique_labels]
+    # Convert to DataFrame for better visual
     cm_df = pd.DataFrame(cm, index=class_names, columns=class_names)
     # Add totals
     cm_df['Total True'] = cm_df.sum(axis=1)
@@ -270,9 +220,39 @@ def visualise_misclassified(paths, true_labels, predicted_labels, max_images=5):
             ax.imshow(image)
             ax.set_title(f'True: {true_labels[i]} Pred: {predicted_labels[i]}')
             ax.axis('off')
-        plt.savefig('plots/misclassified2.png')
+        plt.savefig('plots/misclassified_10.png')
     else:
         print("No misclassified images to display.")
+
+#--------------------------------------------------------------------------------------------------------------------------
+# Function to visualise top N probabilities for an image and class 
+#--------------------------------------------------------------------------------------------------------------------------
+
+def visualise_top_probabilities(model, image, device, class_names, k=3):
+    model.eval()
+    image = image.to(device)
+
+    with torch.no_grad():
+        logits = model(image)
+        probabilities = F.softmax(logits, dim=1)
+        top_probs, top_classes = torch.topk(probabilities, k)
+
+    # Convert to CPU and numpy for easy handling
+    top_probs = top_probs.cpu().numpy().flatten()
+    top_classes = top_classes.cpu().numpy().flatten()
+
+    # Convert class indices to class names
+    labels = [class_names[idx] for idx in top_classes]
+
+    # Plotting
+    plt.figure(figsize=(8, 4))
+    plt.bar(labels, top_probs, color='blue')
+    plt.xlabel('Classes')
+    plt.ylabel('Probability')
+    plt.title('Top Probabilities and Associated Classes')
+    plt.ylim([0, 1])  # Since probability cannot exceed 1
+    plt.savefig('plots/top_probabilities.png')
+
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
@@ -313,7 +293,10 @@ with open(log_file, 'a') as log:
         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
         scheduler.step()  # Step the learning rate scheduler
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
-    #test_accuracy = test(model, test_loader, device)[0]
+
     test_accuracy, confusion_matrix_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths = test(model, test_loader, device)
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
+    
+
     visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
+    visualise_top_probabilities(model, image, device, class_names, k=3)
