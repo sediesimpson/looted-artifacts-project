@@ -12,7 +12,7 @@ validation_losses = []
 # timestamp = time.strftime("%Y%m%d-%H%M%S")
 # log_dir = "train_val_logs"
 #log_file_path = os.path.join(log_dir, f"logs_{timestamp}.txt")
-log_file_path = 'train_val_logs/logs_20240522-140542.txt'
+log_file_path = 'train_val_logs/logs_20240529-113438.txt'
 
 # Regular expression pattern to match the log lines
 pattern = r'Epoch \[(\d+)/\d+\], Training Loss: ([\d.]+), Validation Loss: ([\d.]+), Validation Accuracy: ([\d.]+)%'
@@ -42,5 +42,5 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.title('Training and Validation Loss per Epoch')
 plt.legend()
-plt.savefig('plots/train_val_plot.png')
+plt.savefig('plots/train_val_plotcheck.png')
 #plt.show()
