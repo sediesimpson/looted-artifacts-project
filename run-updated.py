@@ -19,6 +19,7 @@ from finaldataloader import CustomImageDataset
 import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
+from collections import Counter
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
@@ -122,8 +123,6 @@ def train(model, train_loader, criterion, optimizer, device):
     # Returns the average loss (this will be after every epoch)
     average_loss = running_loss / total_step
     print('Training Loss: {:.4f}'.format(average_loss))
-    # torch.save(model.state_dict(), 'model_state_dict.pth')
-    # print("Saved trained model.")
     return average_loss
 
 def validate(model, valid_loader, criterion, device):
@@ -147,6 +146,20 @@ def validate(model, valid_loader, criterion, device):
     accuracy = 100.0 * correct / total
     print('Validation Loss: {:.4f}, Validation Accuracy: {:.2f}%'.format(validation_loss, accuracy))
     return validation_loss, accuracy
+#--------------------------------------------------------------------------------------------------------------------------
+# Grid searching to find optimal parameters 
+#--------------------------------------------------------------------------------------------------------------------------
+param_grid = {
+    'learning_rate': [0.001, 0.01, 0.1],
+    'momentum': [0.8, 0.9, 0.99],
+    'batch_size': [32, 64, 128]
+}
+
+grid_search = GridSearchCV(estimator=CustomResNetEstimator(num_classes=10, hidden_features=256), param_grid=param_grid, scoring=make_scorer(accuracy_score), cv=3)
+grid_search.fit(train_loader, val_loader)  # X=train_loader, y=val_loader
+#--------------------------------------------------------------------------------------------------------------------------
+print(f"Best parameters: {grid_search.best_params_}")
+print(f"Best score: {grid_search.best_score_}")
 
 def test(model, test_loader, device, top_n=3):
     model.eval()
@@ -242,10 +255,12 @@ def test(model, test_loader, device, top_n=3):
         "paths": all_paths,
         "confidence_correct": confidence_correct,
         "confidence_incorrect": confidence_incorrect,
-        "borderline_cases": borderline_cases
+        "borderline_cases": borderline_cases,
+        "all_labels": all_labels,
+        "confusion_matrix": cm
     }
 
-    return accuracy, cm_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info
+    return accuracy, cm_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Function to visualise misclassified images 
@@ -306,6 +321,8 @@ log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 #--------------------------------------------------------------------------------------------------------------------------
 # Writing results to log file
 #--------------------------------------------------------------------------------------------------------------------------
+best_val_accuracy = 0.0  # Initialise best validation accuracy
+
 with open(log_file, 'a') as log:
     for epoch in range(num_epochs):
         print(f'Epoch [{epoch+1}/{num_epochs}]')
@@ -313,9 +330,15 @@ with open(log_file, 'a') as log:
         val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
         scheduler.step()  # Step the learning rate scheduler
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
+    
+     # Save the model if it has the best validation accuracy so far
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            torch.save(model.state_dict(), 'models/best_model.pth')
+            print(f'Saved Best Model with Validation Accuracy: {val_accuracy:.2f}%')
 
     # Extract all info from test function     
-    test_accuracy, confusion_matrix_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3)
+    test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3)
     
     # Write confusion matrix and test accuracy to log file 
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
@@ -334,6 +357,8 @@ with open(log_file, 'a') as log:
     confidence_correct = top_n_info['confidence_correct']
     confidence_incorrect = top_n_info['confidence_incorrect']
     borderline_cases = top_n_info['borderline_cases']
+    all_labels = top_n_info['all_labels']
+    cm = top_n_info['confusion_matrix']
 
     # Get the top N predictions and probabilities for correctly classified images
     correct_top_n_predictions, correct_top_n_probabilities = get_top_n_subset(correctly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
@@ -386,5 +411,31 @@ with open(log_file, 'a') as log:
         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
-    #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
+#--------------------------------------------------------------------------------------------------------------------------
+# Visualising the distribution of correct labels 
+#--------------------------------------------------------------------------------------------------------------------------  
+    # Extract correct class labels for visualization
+    correct_labels = [all_labels[idx] for idx in correctly_classified_indices]
+
+    # Count frequency of each class in correctly classified labels
+    class_counts = Counter(correct_labels)
+
+    # Plot the distribution of correctly classified classes
+    plt.figure(figsize=(10, 6))
+    plt.bar(class_counts.keys(), class_counts.values(), color='skyblue')
+    plt.xlabel('Class')
+    plt.ylabel('Frequency')
+    plt.title('Distribution of Correctly Classified Classes')
+    plt.xticks(rotation=45)
+    plt.savefig('plots/DoC.png')
+
+    # Plot confusion matrix
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.title('Confusion Matrix')
+    plt.savefig('plots/cm.png')
+
+#visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
 
