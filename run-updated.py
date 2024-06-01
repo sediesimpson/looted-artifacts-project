@@ -18,17 +18,18 @@ import pandas as pd
 from finaldataloader import CustomImageDataset
 import argparse
 import torch.nn.functional as F
+from sklearn.utils.class_weight import compute_class_weight
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=50)
+parser.add_argument('--num_epochs', type=int, default=5)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test10classes")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
@@ -121,8 +122,8 @@ def train(model, train_loader, criterion, optimizer, device):
     # Returns the average loss (this will be after every epoch)
     average_loss = running_loss / total_step
     print('Training Loss: {:.4f}'.format(average_loss))
-    torch.save(model.state_dict(), 'model_state_dict.pth')
-    print("Saved trained model.")
+    # torch.save(model.state_dict(), 'model_state_dict.pth')
+    # print("Saved trained model.")
     return average_loss
 
 def validate(model, valid_loader, criterion, device):
@@ -147,16 +148,26 @@ def validate(model, valid_loader, criterion, device):
     print('Validation Loss: {:.4f}, Validation Accuracy: {:.2f}%'.format(validation_loss, accuracy))
     return validation_loss, accuracy
 
-def test(model, test_loader, device):
+def test(model, test_loader, device, top_n=3):
     model.eval()
     correct = 0
     total = 0
+
     all_labels = []
     all_predictions = []
+    all_top_n_predictions = []
+    all_top_n_probabilities = []
+    all_paths = []
     misclassified_images = []
     misclassified_labels = []
     misclassified_predictions = []
     misclassified_paths = []
+    correctly_classified_indices = []
+    incorrectly_classified_indices = []
+    confidence_correct = []
+    confidence_incorrect = []
+    borderline_cases = []
+
     with torch.no_grad():
         for images, labels, paths in test_loader:
             images = images.to(device)
@@ -165,9 +176,13 @@ def test(model, test_loader, device):
 
              # Calculate softmax probabilities
             probabilities = F.softmax(outputs, dim=1)
-            
-            # Print or log softmax probabilities if needed
-            #print(probabilities)
+
+            # Get the top N predictions and their probabilities
+            top_n_probabilities, top_n_predictions = torch.topk(probabilities, top_n, dim=1)
+
+            # Append the top N predictions and probabilities for each image
+            all_top_n_predictions.extend(top_n_predictions.cpu().numpy())
+            all_top_n_probabilities.extend(top_n_probabilities.cpu().numpy())
 
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -175,6 +190,20 @@ def test(model, test_loader, device):
 
             all_labels.extend(labels.cpu().numpy())
             all_predictions.extend(predicted.cpu().numpy())
+            all_paths.extend(paths)
+
+            # Collect correctly and misclassified images indices
+            for j in range(len(labels)):
+                confidence = probabilities[j, predicted[j]].item()
+                confidence_diff = top_n_probabilities[j][0] - top_n_probabilities[j][1] if top_n > 1 else 1.0
+                if predicted[j] == labels[j]:
+                    correctly_classified_indices.append(len(all_labels) - len(labels) + j)
+                    confidence_correct.append((confidence, len(all_labels) - len(labels) + j))
+                else:
+                    incorrectly_classified_indices.append(len(all_labels) - len(labels) + j)
+                    confidence_incorrect.append((confidence, len(all_labels) - len(labels) + j))
+                borderline_cases.append((confidence_diff, len(all_labels) - len(labels) + j, predicted[j] == labels[j]))
+
 
             # Collect misclassified images
             misclassified_idx = (predicted != labels).cpu().numpy().astype(bool)
@@ -198,11 +227,25 @@ def test(model, test_loader, device):
     total_pred = cm_df.sum(axis=0)
     total_pred.name = 'Total Predicted'
     cm_df = pd.concat([cm_df, total_pred.to_frame().T])
-    # Print confusion matrix as table
-    print("\nConfusion Matrix:")
-    print(cm_df)
 
-    return accuracy, cm_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths
+    # Sort the confidences
+    confidence_correct.sort(reverse=True, key=lambda x: x[0])
+    confidence_incorrect.sort(key=lambda x: x[0])
+    borderline_cases.sort(key=lambda x: x[0])
+
+    # top N information
+    top_n_info = {
+        "all_top_n_predictions": all_top_n_predictions,
+        "all_top_n_probabilities": all_top_n_probabilities,
+        "correctly_classified_indices": correctly_classified_indices,
+        "incorrectly_classified_indices": incorrectly_classified_indices,
+        "paths": all_paths,
+        "confidence_correct": confidence_correct,
+        "confidence_incorrect": confidence_incorrect,
+        "borderline_cases": borderline_cases
+    }
+
+    return accuracy, cm_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Function to visualise misclassified images 
@@ -225,42 +268,17 @@ def visualise_misclassified(paths, true_labels, predicted_labels, max_images=5):
         print("No misclassified images to display.")
 
 #--------------------------------------------------------------------------------------------------------------------------
-# Function to visualise top N probabilities for an image and class 
+# Function to visualise top N predictions and probabilities
 #--------------------------------------------------------------------------------------------------------------------------
-
-def visualise_top_probabilities(model, image, device, class_names, k=3):
-    model.eval()
-    image = image.to(device)
-
-    with torch.no_grad():
-        logits = model(image)
-        probabilities = F.softmax(logits, dim=1)
-        top_probs, top_classes = torch.topk(probabilities, k)
-
-    # Convert to CPU and numpy for easy handling
-    top_probs = top_probs.cpu().numpy().flatten()
-    top_classes = top_classes.cpu().numpy().flatten()
-
-    # Convert class indices to class names
-    labels = [class_names[idx] for idx in top_classes]
-
-    # Plotting
-    plt.figure(figsize=(8, 4))
-    plt.bar(labels, top_probs, color='blue')
-    plt.xlabel('Classes')
-    plt.ylabel('Probability')
-    plt.title('Top Probabilities and Associated Classes')
-    plt.ylim([0, 1])  # Since probability cannot exceed 1
-    plt.savefig('plots/top_probabilities.png')
+def get_top_n_subset(indices, top_n_predictions, top_n_probabilities):
+    subset_top_n_predictions = [top_n_predictions[i] for i in indices]
+    subset_top_n_probabilities = [top_n_probabilities[i] for i in indices]
+    return subset_top_n_predictions, subset_top_n_probabilities
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
 from modelcomplete import CustomResNet50, CustomClassifier
-# num_classes = 3
-# hidden_features = 64
-# learning_rate = 0.001
-# num_epochs = 100
 
 num_classes = args.num_classes
 hidden_features = args.hidden_features
@@ -272,7 +290,6 @@ model = CustomResNet50(num_classes, hidden_features)
 # Move the model to the device (CPU or GPU)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)
-print(model)
 print(device)
 
 # Define the loss function and the optimizer
@@ -286,6 +303,9 @@ log_dir = "train_val_logs"
 os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
 log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 
+#--------------------------------------------------------------------------------------------------------------------------
+# Writing results to log file
+#--------------------------------------------------------------------------------------------------------------------------
 with open(log_file, 'a') as log:
     for epoch in range(num_epochs):
         print(f'Epoch [{epoch+1}/{num_epochs}]')
@@ -294,9 +314,77 @@ with open(log_file, 'a') as log:
         scheduler.step()  # Step the learning rate scheduler
         log.write(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%\n')
 
-    test_accuracy, confusion_matrix_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths = test(model, test_loader, device)
-    log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
+    # Extract all info from test function     
+    test_accuracy, confusion_matrix_df, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3)
     
+    # Write confusion matrix and test accuracy to log file 
+    log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
 
-    visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
-    visualise_top_probabilities(model, image, device, class_names, k=3)
+    # Write confusion matrix to log file
+    log.write('\nConfusion Matrix:\n')
+    log.write(confusion_matrix_df.to_string())
+    log.write('\n')
+
+    # Extract the top N predictions and probabilities from the dictionary
+    all_top_n_predictions = top_n_info['all_top_n_predictions']
+    all_top_n_probabilities = top_n_info['all_top_n_probabilities']
+    correctly_classified_indices = top_n_info['correctly_classified_indices']
+    incorrectly_classified_indices = top_n_info['incorrectly_classified_indices']
+    paths = top_n_info['paths']
+    confidence_correct = top_n_info['confidence_correct']
+    confidence_incorrect = top_n_info['confidence_incorrect']
+    borderline_cases = top_n_info['borderline_cases']
+
+    # Get the top N predictions and probabilities for correctly classified images
+    correct_top_n_predictions, correct_top_n_probabilities = get_top_n_subset(correctly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
+
+    # Get the top N predictions and probabilities for incorrectly classified images
+    incorrect_top_n_predictions, incorrect_top_n_probabilities = get_top_n_subset(incorrectly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
+
+     # Write correctly classified images info to log file
+    top_n = 3
+    log.write("\nCorrectly Classified Images\n")
+    for i, idx in enumerate(correctly_classified_indices[:5]):  # Limiting to first 5 for brevity
+        log.write(f"Image index: {idx}\n")
+        log.write(f"Top {top_n} Predictions: {correct_top_n_predictions[i]}\n")
+        log.write(f"Top {top_n} Probabilities: {correct_top_n_probabilities[i]}\n\n")
+
+    # Write incorrectly classified images info to log file
+    log.write("\nIncorrectly Classified Images\n")
+    for i, idx in enumerate(incorrectly_classified_indices[:5]):  # Limiting to first 5 for brevity
+        log.write(f"Image index: {idx}\n")
+        log.write(f"Top {top_n} Predictions: {incorrect_top_n_predictions[i]}\n")
+        log.write(f"Top {top_n} Probabilities: {incorrect_top_n_probabilities[i]}\n\n")
+    
+    # Write top 5 most confident correct predictions to log file
+    log.write("\nTop 5 Most Confident Correct Predictions\n")
+    for confidence, idx in confidence_correct[:5]:
+        log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+
+    # Write bottom 5 least confident incorrect predictions to log file
+    log.write("\nBottom 5 Least Confident Incorrect Predictions\n")
+    for confidence, idx in confidence_incorrect[:5]:
+        log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+
+    # Filter and write top 5 borderline correct cases to log file
+    log.write("\nTop 5 Borderline Correct Cases\n")
+    borderline_correct_cases = [case for case in borderline_cases if case[2]]  # Filter for correct predictions
+    for confidence_diff, idx, is_correct in borderline_correct_cases[:5]:
+        log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+
+    # Filter and write top 5 borderline incorrect cases to log file
+    log.write("\nTop 5 Borderline Incorrect Cases\n")
+    borderline_incorrect_cases = [case for case in borderline_cases if not case[2]]  # Filter for incorrect predictions
+    for confidence_diff, idx, is_correct in borderline_incorrect_cases[:5]:
+        log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+
+    #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
+
