@@ -20,13 +20,14 @@ import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
+from utils import *
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=5)
+parser.add_argument('--num_epochs', type=int, default=2)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
@@ -149,17 +150,17 @@ def validate(model, valid_loader, criterion, device):
 #--------------------------------------------------------------------------------------------------------------------------
 # Grid searching to find optimal parameters 
 #--------------------------------------------------------------------------------------------------------------------------
-param_grid = {
-    'learning_rate': [0.001, 0.01, 0.1],
-    'momentum': [0.8, 0.9, 0.99],
-    'batch_size': [32, 64, 128]
-}
+# param_grid = {
+#     'learning_rate': [0.001, 0.01, 0.1],
+#     'momentum': [0.8, 0.9, 0.99],
+#     'batch_size': [32, 64, 128]
+# }
 
-grid_search = GridSearchCV(estimator=CustomResNetEstimator(num_classes=10, hidden_features=256), param_grid=param_grid, scoring=make_scorer(accuracy_score), cv=3)
-grid_search.fit(train_loader, val_loader)  # X=train_loader, y=val_loader
+# grid_search = GridSearchCV(estimator=CustomResNetEstimator(num_classes=10, hidden_features=256), param_grid=param_grid, scoring=make_scorer(accuracy_score), cv=3)
+# grid_search.fit(train_loader, val_loader)  # X=train_loader, y=val_loader
 #--------------------------------------------------------------------------------------------------------------------------
-print(f"Best parameters: {grid_search.best_params_}")
-print(f"Best score: {grid_search.best_score_}")
+# print(f"Best parameters: {grid_search.best_params_}")
+# print(f"Best score: {grid_search.best_score_}")
 
 def test(model, test_loader, device, top_n=3):
     model.eval()
@@ -436,6 +437,18 @@ with open(log_file, 'a') as log:
     plt.ylabel('True Label')
     plt.title('Confusion Matrix')
     plt.savefig('plots/cm.png')
+
+
+#--------------------------------------------------------------------------------------------------------------------------
+# Grad-CAM visualisation
+#--------------------------------------------------------------------------------------------------------------------------  
+target_layer = model.resnet50.layer4[-1]
+
+# Hook for activations and gradients
+hook = Hook(target_layer)
+
+for image_path in paths[:5]:
+    visualise_gradcam(model, image_path, device, target_layer, class_names)
 
 #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
 
