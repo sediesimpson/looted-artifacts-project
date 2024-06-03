@@ -7,7 +7,7 @@ logs/
 machine*
 plots/
 CIFARtest/
-models/
+models*
 slurmfiles/
 machinefiles/
 saliency_maps/
