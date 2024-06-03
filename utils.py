@@ -1,114 +1,151 @@
-import torch
-import torch.nn.functional as F
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
 from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+import os
 from PIL import Image
+import torch
+import numpy as np
+from torchvision.models import resnet50, ResNet50_Weights
+import time
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import pandas as pd
+from finaldataloader import CustomImageDataset
+import argparse
+import torch.nn.functional as F
+from sklearn.utils.class_weight import compute_class_weight
+from collections import Counter
+from finaldataloader import *
 
-#-----------------------------------------------------------------------------------------------------
-# Grad-CAM Implementation
-#-----------------------------------------------------------------------------------------------------
-class Hook:
-    def __init__(self, module):
-        self.activations = None
-        self.gradients = None
-        module.register_forward_hook(self.forward_hook)
-        module.register_backward_hook(self.backward_hook)
-    
-    def forward_hook(self, module, input, output):
-        self.activations = output
-        print(f"Forward Hook: Captured activations of shape {self.activations.shape}")
-
-    def backward_hook(self, module, grad_input, grad_output):
-        self.gradients = grad_output[0]
-        print(f"Backward Hook: Captured gradients of shape {self.gradients.shape}")
-
-def preprocess_image(image_path):
+def preprocess_image(image):
     preprocess = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.456], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
-    image = Image.open(image_path).convert('RGB')
-    image_tensor = preprocess(image).unsqueeze(0)
-    return image_tensor, image
+    image = preprocess(image)
+    return image
 
-# Update the get_gradcam_heatmap function to use the hook
-def get_gradcam_heatmap(model, image_tensor, hook, target_class=None):
-    model.eval()
-    
+# def generate_saliency_map(model, input_image, predicted_class):
+#     input_image.requires_grad_()
+
+#     # Forward pass
+#     output = model(input_image)
+
+#     # Zero all existing gradients
+#     model.zero_grad()
+
+#     # Backward pass to get gradients
+#     output[0, predicted_class].backward()
+
+#     # Get the gradients of the input image
+#     saliency = input_image.grad.data.abs().squeeze().sum(dim=0)
+
+
+#     # Normalize the saliency map
+#     saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
+
+#     return saliency.cpu().numpy()
+
+def generate_saliency_map(model, input_image, predicted_class):
+    input_image.requires_grad_()
+
     # Forward pass
-    print("Performing forward pass...")
-    outputs = model(image_tensor)
-    
-    # Get the index of the target class
-    if target_class is None:
-        target_class = outputs.argmax(dim=1).item()
-    
-    # Backward pass to get gradients
+    output = model(input_image)
+
+    # Zero all existing gradients
     model.zero_grad()
-    print("Performing backward pass...")
-    target = outputs[0][target_class]
-    target.backward(retain_graph=True)
 
-    # Get the gradients and the activations from the hook
-    gradients = hook.gradients
-    activations = hook.activations
+    # Backward pass to get gradients
+    output[0, predicted_class].backward()
 
-    # Debug print statements
-    if gradients is None:
-        print("Gradients are not captured.")
-    else:
-        print(f"Gradients shape: {gradients.shape}")
+    # Get the gradients of the input image
+    saliency = input_image.grad.data.abs().squeeze().sum(dim=0)
 
-    if activations is None:
-        print("Activations are not captured.")
-    else:
-        print(f"Activations shape: {activations.shape}")
+    # Normalize the saliency map
+    saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
 
-    # Check if gradients and activations are not None
-    if gradients is None or activations is None:
-        raise ValueError("Gradients or activations are not captured properly.")
+    return saliency.cpu().numpy()
 
-    # Global Average Pooling on the gradients
-    pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
 
-    # Weight the activations
-    for i in range(activations.shape[1]):
-        activations[:, i, :, :] *= pooled_gradients[i]
+# def plot_and_save_saliency_maps(saliency_maps, output_dir="saliency_maps"):
+#     import os
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
 
-    # Average the activations to get the heatmap
-    heatmap = torch.mean(activations, dim=1).squeeze().cpu().detach().numpy()
-    
-    # Normalize the heatmap
-    heatmap = np.maximum(heatmap, 0)
-    heatmap /= heatmap.max()
+#     for idx, (image_path, saliency_map, predicted_class, true_label) in enumerate(saliency_maps):
+#         plt.figure(figsize=(10, 5))
 
-    return heatmap
+#         # Plot the original image
+#         plt.subplot(1, 2, 1)
+#         image = Image.open(image_path)
+#         plt.imshow(image)
+#         plt.title(f"True: {true_label}, Predicted: {predicted_class}")
 
-def apply_heatmap_on_image(image, heatmap, alpha=0.4):
-    heatmap = cv2.resize(heatmap, (image.size[0], image.size[1]))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-    superimposed_img = np.array(image) * (1 - alpha) + heatmap * alpha
-    superimposed_img = np.uint8(superimposed_img)
-    return superimposed_img
+#         # Plot the saliency map
+#         plt.subplot(1, 2, 2)
+#         plt.imshow(saliency_map, cmap='hot')
+#         plt.title("Saliency Map")
 
-def visualise_gradcam(model, image_path, device, target_layer, class_names, target_class=None):
-    image_tensor, image = preprocess_image(image_path)
-    image_tensor = image_tensor.to(device)
-    target_layer.gradients = None
+#         # Save the figure
+#         plt.savefig(os.path.join(output_dir, f"saliency_map_{idx}.png"))
+#         plt.close()  # Close the figure to free up memory
 
-    # Forward and backward pass
-    heatmap = get_gradcam_heatmap(model, image_tensor, target_layer, target_class)
+def overlay_saliency_on_image(image, saliency_map, alpha=0.5, cmap='jet'):
+    """
+    Overlay a saliency map on an image with a color map.
+    Args:
+        image (PIL.Image): The original image.
+        saliency_map (numpy.ndarray): The saliency map.
+        alpha (float): The transparency for the saliency map.
+        cmap (str): The color map to use for the saliency map.
+    Returns:
+        PIL.Image: The image with the saliency map overlay.
+    """
+    # Convert the image to RGB if it is not already
+    image = image.convert("RGB")
+    image_np = np.array(image)
 
-    # Apply heatmap on the image
-    superimposed_img = apply_heatmap_on_image(image, heatmap)
+    # Apply color map to the saliency map
+    saliency_map_resized = Image.fromarray((saliency_map * 255).astype(np.uint8))
+    saliency_map_resized = saliency_map_resized.resize(image.size, resample=Image.BILINEAR)
+    saliency_map_resized = np.array(saliency_map_resized)
 
-    # Display the result
-    plt.imshow(superimposed_img)
-    plt.title(f"Grad-CAM for {image_path}")
-    plt.axis('off')
-    plt.savefig('plots/gradcam.png')
+    # Apply color map
+    saliency_map_colored = plt.get_cmap(cmap)(saliency_map_resized / 255.0)[:, :, :3]
+    saliency_map_colored = (saliency_map_colored * 255).astype(np.uint8)
+
+    # Combine the image and the saliency map
+    overlay = image_np * (1 - alpha) + saliency_map_colored * alpha
+
+    # Ensure the overlay is in the range [0, 255] and convert to uint8
+    overlay = np.clip(overlay, 0, 255).astype(np.uint8)
+
+    return Image.fromarray(overlay)
+
+def plot_and_save_saliency_maps(saliency_maps, output_dir="saliency_maps", alpha=0.5, cmap='jet'):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for idx, (image_path, saliency_map, predicted_class, true_label) in enumerate(saliency_maps):
+        image = Image.open(image_path)
+        overlay_image = overlay_saliency_on_image(image, saliency_map, alpha, cmap)
+
+        # Plot and save the figure with the color bar
+        plt.figure(figsize=(10, 5))
+
+        # Plot the original image with saliency map overlay
+        plt.imshow(overlay_image)
+        plt.title(f"True: {true_label}, Predicted: {predicted_class}")
+
+        # Add a color bar
+        mappable = plt.cm.ScalarMappable(cmap=cmap)
+        mappable.set_array(saliency_map)
+        plt.colorbar(mappable, label="Saliency Intensity")
+
+        # Save the figure
+        plt.savefig(os.path.join(output_dir, f"saliency_map_overlay_{idx}.png"))
+        plt.close()
+

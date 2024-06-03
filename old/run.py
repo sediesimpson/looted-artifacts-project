@@ -6,7 +6,7 @@ from torchvision.models import efficientnet_b6, EfficientNet_B6_Weights
 import torchvision.models as models
 from dataloader import CustomImageDataset
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from models import ResNet, ResidualBlock
+from old.models import ResNet, ResidualBlock
 import os
 from PIL import Image
 import torch

@@ -8,3 +8,6 @@ machine*
 plots/
 CIFARtest/
 models/
+slurmfiles/
+machinefiles/
+saliency_maps/
