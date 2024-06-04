@@ -11,3 +11,4 @@ models*
 slurmfiles/
 machinefiles/
 saliency_maps/
+saliency_maps*

@@ -31,12 +31,12 @@ parser.add_argument('--num_epochs', type=int, default=25)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/la_data")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
 parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--num_classes', type=int, default=3)
+parser.add_argument('--num_classes', type=int, default=29)
 parser.add_argument('--hidden_features', type=int, default=512)
 args = parser.parse_args()
 
@@ -251,26 +251,16 @@ def test(model, test_loader, device, top_n=3, saliency_n=5):
     best_indices = [idx for _, idx in confidence_correct[:saliency_n]]
     worst_indices = [idx for _, idx in confidence_incorrect[:saliency_n]]
 
-    # for idx in best_indices + worst_indices:
-    #     # Calculate batch index and image index within batch
-    #     batch_index = idx // len(images)
-    #     image_index = idx % len(images)
-
-    #     input_image = images[image_index].unsqueeze(0).to(device)
-    #     predicted_class = all_predictions[idx]
-    #     saliency_map = generate_saliency_map(model, input_image, predicted_class)
-    #     saliency_maps.append((all_paths[idx], saliency_map, predicted_class, all_labels[idx]))
-
     for idx in best_indices + worst_indices:
-        if idx < len(all_paths):
-            image = Image.open(all_paths[idx])
-            mask = masks[idx % len(masks)].cpu().numpy()
-            input_image, processed_mask = preprocess_image(image, mask)
-            input_image = input_image.unsqueeze(0).to(device)
-            predicted_class = all_predictions[idx]
-            saliency_map = generate_saliency_map(model, input_image, predicted_class, processed_mask)
-            saliency_maps.append((all_paths[idx], saliency_map, predicted_class, all_labels[idx]))
-    
+        # Calculate batch index and image index within batch
+        batch_index = idx // len(images)
+        image_index = idx % len(images)
+
+        input_image = images[image_index].unsqueeze(0).to(device)
+        predicted_class = all_predictions[idx]
+        saliency_map = generate_saliency_map(model, input_image, predicted_class)
+        saliency_maps.append((all_paths[idx], saliency_map, predicted_class, all_labels[idx]))
+
     print(f'Number of saliency maps generated: {len(saliency_maps)}')
 
 
@@ -369,7 +359,7 @@ with open(log_file, 'a') as log:
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
             torch.save(model.state_dict(), 'models/best_model.pth')
-            print(f'Saved Best Model with Validation Accuracy: {val_accuracy:.2f}%')
+            log.write(f'\nSaved Best Model with Validation Accuracy: {val_accuracy:.2f}%\n')
 
     # Extract all info from test function     
     test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info, saliency_maps = test(model, test_loader, device, top_n=3, saliency_n=5)
@@ -377,110 +367,110 @@ with open(log_file, 'a') as log:
     # Write confusion matrix and test accuracy to log file 
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
 
-#     log.write("\nVariables Used:\n")
-#     log.write(f'Number of Epochs: {args.num_epochs}\n')
-#     log.write(f'Number of Classes: {args.num_classes}\n')
-#     log.write(f'Hidden Features: {args.hidden_features}\n')
-#     log.write(f'Learning Rate: {args.lr}\n')
+    log.write("\nVariables Used:\n")
+    log.write(f'Number of Epochs: {args.num_epochs}\n')
+    log.write(f'Number of Classes: {args.num_classes}\n')
+    log.write(f'Hidden Features: {args.hidden_features}\n')
+    log.write(f'Learning Rate: {args.lr}\n')
 
-#     # Write confusion matrix to log file
-#     log.write('\nConfusion Matrix:\n')
-#     log.write(confusion_matrix_df.to_string())
-#     log.write('\n')
+    # Write confusion matrix to log file
+    log.write('\nConfusion Matrix:\n')
+    log.write(confusion_matrix_df.to_string())
+    log.write('\n')
 
-#     # Extract the top N predictions and probabilities from the dictionary
-#     all_top_n_predictions = top_n_info['all_top_n_predictions']
-#     all_top_n_probabilities = top_n_info['all_top_n_probabilities']
-#     correctly_classified_indices = top_n_info['correctly_classified_indices']
-#     incorrectly_classified_indices = top_n_info['incorrectly_classified_indices']
-#     paths = top_n_info['paths']
-#     confidence_correct = top_n_info['confidence_correct']
-#     confidence_incorrect = top_n_info['confidence_incorrect']
-#     borderline_cases = top_n_info['borderline_cases']
-#     all_labels = top_n_info['all_labels']
-#     cm = top_n_info['confusion_matrix']
+    # Extract the top N predictions and probabilities from the dictionary
+    all_top_n_predictions = top_n_info['all_top_n_predictions']
+    all_top_n_probabilities = top_n_info['all_top_n_probabilities']
+    correctly_classified_indices = top_n_info['correctly_classified_indices']
+    incorrectly_classified_indices = top_n_info['incorrectly_classified_indices']
+    paths = top_n_info['paths']
+    confidence_correct = top_n_info['confidence_correct']
+    confidence_incorrect = top_n_info['confidence_incorrect']
+    borderline_cases = top_n_info['borderline_cases']
+    all_labels = top_n_info['all_labels']
+    cm = top_n_info['confusion_matrix']
 
-#     # Get the top N predictions and probabilities for correctly classified images
-#     correct_top_n_predictions, correct_top_n_probabilities = get_top_n_subset(correctly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
+    # Get the top N predictions and probabilities for correctly classified images
+    correct_top_n_predictions, correct_top_n_probabilities = get_top_n_subset(correctly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
 
-#     # Get the top N predictions and probabilities for incorrectly classified images
-#     incorrect_top_n_predictions, incorrect_top_n_probabilities = get_top_n_subset(incorrectly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
+    # Get the top N predictions and probabilities for incorrectly classified images
+    incorrect_top_n_predictions, incorrect_top_n_probabilities = get_top_n_subset(incorrectly_classified_indices, all_top_n_predictions, all_top_n_probabilities)
 
-#      # Write correctly classified images info to log file
-#     top_n = 3
-#     log.write("\nCorrectly Classified Images\n")
-#     for i, idx in enumerate(correctly_classified_indices[:5]):  # Limiting to first 5 for brevity
-#         log.write(f"Image index: {idx}\n")
-#         log.write(f"Top {top_n} Predictions: {correct_top_n_predictions[i]}\n")
-#         log.write(f"Top {top_n} Probabilities: {correct_top_n_probabilities[i]}\n\n")
+     # Write correctly classified images info to log file
+    top_n = 3
+    log.write("\nCorrectly Classified Images\n")
+    for i, idx in enumerate(correctly_classified_indices[:5]):  # Limiting to first 5 for brevity
+        log.write(f"Image index: {idx}\n")
+        log.write(f"Top {top_n} Predictions: {correct_top_n_predictions[i]}\n")
+        log.write(f"Top {top_n} Probabilities: {correct_top_n_probabilities[i]}\n\n")
 
-#     # Write incorrectly classified images info to log file
-#     log.write("\nIncorrectly Classified Images\n")
-#     for i, idx in enumerate(incorrectly_classified_indices[:5]):  # Limiting to first 5 for brevity
-#         log.write(f"Image index: {idx}\n")
-#         log.write(f"Top {top_n} Predictions: {incorrect_top_n_predictions[i]}\n")
-#         log.write(f"Top {top_n} Probabilities: {incorrect_top_n_probabilities[i]}\n\n")
+    # Write incorrectly classified images info to log file
+    log.write("\nIncorrectly Classified Images\n")
+    for i, idx in enumerate(incorrectly_classified_indices[:5]):  # Limiting to first 5 for brevity
+        log.write(f"Image index: {idx}\n")
+        log.write(f"Top {top_n} Predictions: {incorrect_top_n_predictions[i]}\n")
+        log.write(f"Top {top_n} Probabilities: {incorrect_top_n_probabilities[i]}\n\n")
     
-#     # Write top 5 most confident correct predictions to log file
-#     log.write("\nTop 5 Most Confident Correct Predictions\n")
-#     for confidence, idx in confidence_correct[:5]:
-#         log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
-#         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
-#         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+    # Write top 5 most confident correct predictions to log file
+    log.write("\nTop 5 Most Confident Correct Predictions\n")
+    for confidence, idx in confidence_correct[:5]:
+        log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
-#     # Write bottom 5 least confident incorrect predictions to log file
-#     log.write("\nBottom 5 Least Confident Incorrect Predictions\n")
-#     for confidence, idx in confidence_incorrect[:5]:
-#         log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
-#         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
-#         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+    # Write bottom 5 least confident incorrect predictions to log file
+    log.write("\nBottom 5 Least Confident Incorrect Predictions\n")
+    for confidence, idx in confidence_incorrect[:5]:
+        log.write(f"Confidence: {confidence:.4f}, Image index: {idx}, Path: {paths[idx]}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
-#     # Filter and write top 5 borderline correct cases to log file
-#     log.write("\nTop 5 Borderline Correct Cases\n")
-#     borderline_correct_cases = [case for case in borderline_cases if case[2]]  # Filter for correct predictions
-#     for confidence_diff, idx, is_correct in borderline_correct_cases[:5]:
-#         log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
-#         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
-#         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+    # Filter and write top 5 borderline correct cases to log file
+    log.write("\nTop 5 Borderline Correct Cases\n")
+    borderline_correct_cases = [case for case in borderline_cases if case[2]]  # Filter for correct predictions
+    for confidence_diff, idx, is_correct in borderline_correct_cases[:5]:
+        log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
-#     # Filter and write top 5 borderline incorrect cases to log file
-#     log.write("\nTop 5 Borderline Incorrect Cases\n")
-#     borderline_incorrect_cases = [case for case in borderline_cases if not case[2]]  # Filter for incorrect predictions
-#     for confidence_diff, idx, is_correct in borderline_incorrect_cases[:5]:
-#         log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
-#         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
-#         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
+    # Filter and write top 5 borderline incorrect cases to log file
+    log.write("\nTop 5 Borderline Incorrect Cases\n")
+    borderline_incorrect_cases = [case for case in borderline_cases if not case[2]]  # Filter for incorrect predictions
+    for confidence_diff, idx, is_correct in borderline_incorrect_cases[:5]:
+        log.write(f"Confidence Difference: {confidence_diff:.4f}, Image index: {idx}, Path: {paths[idx]}, Correct: {is_correct}\n")
+        log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
+        log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
 # #--------------------------------------------------------------------------------------------------------------------------
 # # Visualising the distribution of correct labels 
 # #--------------------------------------------------------------------------------------------------------------------------  
-#     # Extract correct class labels for visualization
-#     correct_labels = [all_labels[idx] for idx in correctly_classified_indices]
+    # Extract correct class labels for visualization
+    correct_labels = [all_labels[idx] for idx in correctly_classified_indices]
 
-#     # Count frequency of each class in correctly classified labels
-#     class_counts = Counter(correct_labels)
+    # Count frequency of each class in correctly classified labels
+    class_counts = Counter(correct_labels)
 
-#     # Plot the distribution of correctly classified classes
-#     plt.figure(figsize=(10, 6))
-#     plt.bar(class_counts.keys(), class_counts.values(), color='skyblue')
-#     plt.xlabel('Class')
-#     plt.ylabel('Frequency')
-#     plt.title('Distribution of Correctly Classified Classes')
-#     plt.xticks(rotation=45)
-#     plt.savefig('plots/DoC.png')
+    # Plot the distribution of correctly classified classes
+    plt.figure(figsize=(10, 6))
+    plt.bar(class_counts.keys(), class_counts.values(), color='skyblue')
+    plt.xlabel('Class')
+    plt.ylabel('Frequency')
+    plt.title('Distribution of Correctly Classified Classes')
+    plt.xticks(rotation=45)
+    plt.savefig('plots/DoC.png')
 
-#     # Plot confusion matrix
-#     plt.figure(figsize=(10, 8))
-#     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
-#     plt.xlabel('Predicted Label')
-#     plt.ylabel('True Label')
-#     plt.title('Confusion Matrix')
-#     plt.savefig('plots/cm.png')
+    # Plot confusion matrix
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.title('Confusion Matrix')
+    plt.savefig('plots/cm.png')
 
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Plot the saliency maps
 #--------------------------------------------------------------------------------------------------------------------------  
-#plot_and_save_saliency_maps(saliency_maps, output_dir="saliency_maps")
+plot_and_save_saliency_maps(saliency_maps, output_dir="saliency_maps")
 #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
 

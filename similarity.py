@@ -110,6 +110,10 @@ def extract_query_features(image_path, dataset, model, device):
 
 def compute_similarities(query_features, dataset_features):
     similarities = [cosine(query_features, features) for features in dataset_features]
+    # sorted_sim = np.sort(similarities)
+    # sorted_sim = sorted_sim[::-1]
+    # print(sorted_sim[0])
+    # print(sorted_sim[1])
     return similarities
 
 def retrieve_top_n_similar(similarities, img_paths, query_image_path, n=5):
@@ -164,16 +168,36 @@ print("Shape of labels:", labels.shape)
 # Query, similarity and top N images using cosine similarity
 #------------------------------------------------------------------------------------------------------------------------
 
-query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 13-4-2011, Lot 211.7.jpg"
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Bonhams, London, 1-4-2014, Lot 191.1.jpg"
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 17-6-2015, Lot 343.jpeg"
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Barakat Volume-11, FZ210.JPG"
+query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/CHR PAR Mar.D. Serres Coll. 16.1 &17.2.11 148.5.JPG"
 query_features, query_label = extract_query_features(query_image_path, dataset, model, device)
 similarities = compute_similarities(query_features, features)
-n = 4
+n = 1
 top_n_indices = retrieve_top_n_similar(similarities, img_paths, query_image_path, n=n)
 print("Top N similar image indices:", top_n_indices)
-print("Top N similar image indices:", top_n_indices)
+
+#------------------------------------------------------------------------------------------------------------------------
+# Similar images indices and paths
+#------------------------------------------------------------------------------------------------------------------------
+# print(len(np.unique(img_paths)))
+# unique_image_paths = np.unique(img_paths)
+# correct_counter = 0
+# incorrect_counter = 0
+# for i in tqdm(unique_image_paths):
+#     query_features, query_label = extract_query_features(unique_image_paths[i], dataset, model, device)
+#     similarities = compute_similarities(query_features, features)
+#     top_n_indices = retrieve_top_n_similar(similarities, img_paths, img_paths[i], n=1)
+#     top_n_labels = [labels[i] for i in top_n_indices]
+
+#     if top_n_labels == query_label:
+#         correct_counter += 1
+#     else:
+#         incorrect_counter += 1
+
+# accuracy = correct_counter/ (correct_counter + incorrect_counter)*100
+# print(accuracy)
+
+
+
 
 #------------------------------------------------------------------------------------------------------------------------
 # Query, similarity and top N images using KNN classifier
@@ -240,6 +264,7 @@ print("Top N similar image indices:", top_n_indices)
 #     result_label = max(normalized_probabilities, key=normalized_probabilities.get)
 #     print("Query image classified as:", result_label)
 
+
 #------------------------------------------------------------------------------------------------------------------------
 # Visualise similar images
 #------------------------------------------------------------------------------------------------------------------------
@@ -256,15 +281,18 @@ def visualise_similar_images(query_image_path, top_n_image_paths, top_n_labels, 
     query_img = Image.open(query_image_path).convert('RGB')
     plt.subplot(1, n+1, 1)
     plt.imshow(query_img)
-    plt.title(f"Query Image (Label: {query_label})")
+    #plt.title(f"Query Image (Label: {query_label})")
+    plt.title('Query Image. Label: Inscriptions')
     plt.axis('off')
     # Plot the top N similar images
     for i, (img_path, label) in enumerate(zip(top_n_image_paths, top_n_labels), 1):
         img = Image.open(img_path).convert('RGB')
         plt.subplot(1, n+1, i+1)
         plt.imshow(img)
-        plt.title(f"Label: {label}")
+        #plt.title(f"Label: {label}")
+        plt.title("Label: Inscriptions")
         plt.axis('off')
-    plt.savefig('plots/top images2_euclid.png')
+    plt.show()
+    #plt.savefig('plots/top images2_cosine.png')
 
 visualise_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n)
