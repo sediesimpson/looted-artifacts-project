@@ -471,6 +471,6 @@ with open(log_file, 'a') as log:
 #--------------------------------------------------------------------------------------------------------------------------
 # Plot the saliency maps
 #--------------------------------------------------------------------------------------------------------------------------  
-plot_and_save_saliency_maps(saliency_maps, output_dir="saliency_maps")
+plot_saliency_maps(saliency_maps, output_dir="saliency_maps")
 #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
 
