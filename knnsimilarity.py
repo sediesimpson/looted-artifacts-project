@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 import numpy as np
-from finaldataloader import CustomImageDataset
+from finaldataloader import *
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import os
@@ -22,9 +22,12 @@ import cv2
 from sklearn.metrics import roc_curve, auc
 from torchvision.models import ResNet50_Weights
 import torch.optim as optim
-from tqdm import tqdm
 import matplotlib.image as mpimg
-
+from sklearn.neighbors import NearestNeighbors
+from scipy.spatial.distance import cosine
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -64,93 +67,113 @@ class CustomResNet50(nn.Module):
         x = torch.flatten(x, 1)
         x = self.custom_classifier(x)
         return x
+    
+#--------------------------------------------------------------------------------------------------------------------------
+# Define Parameters and check dataloaders
+#--------------------------------------------------------------------------------------------------------------------------
+batch_size = 16
+validation_split = 0.1
+shuffle_dataset = True
+random_seed = 42
+test_split = 0.1
 
+# Create dataset
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4"
+dataset = CustomImageDataset(root_dir)
+
+# Get label information
+label_info = dataset.get_label_info()
+print("Label Information:", label_info)
+
+# Get the number of images per label
+label_counts = dataset.count_images_per_label()
+print("Number of images per label:", label_counts)
+
+# Create data indices for training, validation, and test splits
+dataset_size = len(dataset)
+indices = list(range(dataset_size))
+test_split_idx = int(np.floor(test_split * dataset_size))
+validation_split_idx = int(np.floor(validation_split * (dataset_size - test_split_idx)))
+
+if shuffle_dataset:
+    np.random.seed(random_seed)
+    np.random.shuffle(indices)
+
+test_indices = indices[:test_split_idx]
+train_val_indices = indices[test_split_idx:]
+train_indices = train_val_indices[validation_split_idx:]
+val_indices = train_val_indices[:validation_split_idx]
+
+# Create data samplers and loaders
+train_sampler = SubsetRandomSampler(train_indices)
+valid_sampler = SubsetRandomSampler(val_indices)
+test_sampler = SubsetRandomSampler(test_indices)
+
+train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+valid_loader = DataLoader(dataset, batch_size=batch_size, sampler=valid_sampler)
+test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
+
+def count_labels_in_loader(loader, class_to_idx):
+    # Initialize label_counts using the class indices directly
+    label_counts = {idx: 0 for idx in class_to_idx.values()}
+    for _, labels, _ in loader:
+        for label in labels.numpy():
+            if label in label_counts:
+                label_counts[label] += 1
+    return label_counts
+
+# Check label distribution in each loader
+train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
+valid_label_counts = count_labels_in_loader(valid_loader, dataset.class_to_idx)
+test_label_counts = count_labels_in_loader(test_loader, dataset.class_to_idx)
+
+print("Training label distribution:", train_label_counts)
+print("Validation label distribution:", valid_label_counts)
+print("Test label distribution:", test_label_counts)
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
 #------------------------------------------------------------------------------------------------------------------------
-
 def extract_features(dataloader, model, device):
     model.eval()
     features_list = []
     labels_list = []
     img_paths_list = []
+    
     with torch.no_grad():
-        for imgs, labels, _ in tqdm(dataloader, desc="Extracting features"):
-            img_tensors = []
-            for img, label in zip(imgs, labels):
-                img_tensors.append(img.to(device))
-            if not img_tensors:
-                continue
-
-            imgs = torch.stack(img_tensors)
-            features = model.resnet50.avgpool(model.resnet50.layer4(model.resnet50.layer3(model.resnet50.layer2(model.resnet50.layer1(model.resnet50.maxpool(model.resnet50.relu(model.resnet50.bn1(model.resnet50.conv1(imgs)))))))))
+        for imgs, labels, img_paths in tqdm(dataloader, desc="Extracting features"):
+            # Move images to the specified device
+            imgs = imgs.to(device)
+            
+            # Extract features
+            features = model.resnet50.avgpool(
+                model.resnet50.layer4(
+                    model.resnet50.layer3(
+                        model.resnet50.layer2(
+                            model.resnet50.layer1(
+                                model.resnet50.maxpool(
+                                    model.resnet50.relu(
+                                        model.resnet50.bn1(
+                                            model.resnet50.conv1(imgs)
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
             features = torch.flatten(features, 1)
+            
+            # Append features and labels to the respective lists
             features_list.append(features.cpu().numpy())
-            labels_list.append(labels.numpy())
-            img_paths_list.extend([path for path, _ in dataloader.dataset.img_paths])
-    return np.vstack(features_list), np.hstack(labels_list), img_paths_list
+            labels_list.append(labels.cpu().numpy())
+            img_paths_list.extend(img_paths)  # No need to iterate over each path individually
 
-#------------------------------------------------------------------------------------------------------------------------
-# Define the query image extraction function
-#------------------------------------------------------------------------------------------------------------------------
-def extract_query_features(image_path, dataset, model, device):
-    model.eval()
-    with torch.no_grad():
-        foreground_image = dataset.background_subtraction(image_path)
-        if foreground_image is None:
-            return None, None
-        img_t = dataset.transform(foreground_image).unsqueeze(0).to(device)
-        features = model.resnet50.avgpool(model.resnet50.layer4(model.resnet50.layer3(model.resnet50.layer2(model.resnet50.layer1(model.resnet50.maxpool(model.resnet50.relu(model.resnet50.bn1(model.resnet50.conv1(img_t)))))))))
-        features = torch.flatten(features, 1)
-
-    # Find the label of the query image
-    query_label = None
-    for path, label in dataset.img_paths:
-        if path == image_path:
-            query_label = label
-            break
-
-    return features.cpu().numpy().squeeze(), query_label  # Remove batch dimension and convert to numpy array
-
-#------------------------------------------------------------------------------------------------------------------------
-# Define the similarity function and define top N similar function
-#------------------------------------------------------------------------------------------------------------------------
-
-# def compute_similarities(query_features, dataset_features):
-#     similarities = [cosine(query_features, features) for features in dataset_features]
-#     return similarities
-
-# def retrieve_top_n_similar(similarities, img_paths, query_image_path, n=5):
-#     sorted_indices = np.argsort(similarities)
-#     top_n_indices = []
-#     for idx in sorted_indices:
-#         if img_paths[idx] != query_image_path:
-#             top_n_indices.append(idx)
-#         if len(top_n_indices) == n:
-#             break
-#     return top_n_indices
-
-#------------------------------------------------------------------------------------------------------------------------
-# Define the preprocess function
-#------------------------------------------------------------------------------------------------------------------------
-# preprocess = transforms.Compose([
-#     transforms.Resize((224, 224)),
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-# ])
-
-#------------------------------------------------------------------------------------------------------------------------
-# Load dataset
-#------------------------------------------------------------------------------------------------------------------------
-
-dataset_dir = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4"
-dataset = CustomImageDataset(root_dir=dataset_dir)
-
-#------------------------------------------------------------------------------------------------------------------------
-# Create dataloader
-#------------------------------------------------------------------------------------------------------------------------
-dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-
+    # Convert lists to numpy arrays
+    features_array = np.vstack(features_list)
+    labels_array = np.hstack(labels_list)
+    
+    return features_array, labels_array, img_paths_list
 #------------------------------------------------------------------------------------------------------------------------
 # Model
 #------------------------------------------------------------------------------------------------------------------------
@@ -161,112 +184,146 @@ model = CustomResNet50(num_classes=num_classes, hidden_features=hidden_features)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
-# Extract features for whole dataset
-features, labels, img_paths = extract_features(dataloader, model, device)
+# #------------------------------------------------------------------------------------------------------------------------
+# # Run KNN similarity 
+# #------------------------------------------------------------------------------------------------------------------------
+# Extract features for training and validation sets
+train_features, train_labels, train_img_paths = extract_features(train_loader, model, device)
+val_features, val_labels , val_img_paths = extract_features(valid_loader, model, device)
 
-# Print shape of extracted features
-print("Shape of extracted features:", features.shape)
-print("Shape of labels:", labels.shape)
+# Train the KNeighborsClassifier
+knn_classifier = KNeighborsClassifier(n_neighbors=5, metric='cosine')
+knn_classifier.fit(train_features, train_labels)
 
-#------------------------------------------------------------------------------------------------------------------------
-# Query, similarity and top N images using cosine similarity
-#------------------------------------------------------------------------------------------------------------------------
+# Validate the classifier
+val_predictions = knn_classifier.predict(val_features)
+val_accuracy = accuracy_score(val_labels, val_predictions)
+print(f"Validation Accuracy: {val_accuracy:.4f}")
+print("Sample predictions:", val_predictions[:5])
 
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 13-4-2011, Lot 211.7.jpg"
-query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Bonhams, London, 1-4-2014, Lot 191.1.jpg"
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 17-6-2015, Lot 343.jpeg"
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Barakat Volume-11, FZ210.JPG"
-query_features, query_label = extract_query_features(query_image_path, dataset, model, device)
-# similarities = compute_similarities(query_features, features)
-# n = 4
-# top_n_indices = retrieve_top_n_similar(similarities, img_paths, query_image_path, n=n)
-# print("Top N similar image indices:", top_n_indices)
-# print("Top N similar image indices:", top_n_indices)
+test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
+print(test_labels[1:10], test_img_paths[1:10])
+test_predictions = knn_classifier.predict(test_features)
+test_accuracy = accuracy_score(test_labels, test_predictions)
+distances, indices = knn_classifier.kneighbors(test_features, n_neighbors=5) # Get the nearest neighbors for each test image
 
-#------------------------------------------------------------------------------------------------------------------------
-# Query, similarity and top N images using KNN classifier
-#------------------------------------------------------------------------------------------------------------------------
-knn = KNeighborsClassifier(n_neighbors=3, metric='cosine') # here we use cosine distance to make it comparable, but can also be euclidean distance
-knn.fit(features, labels)
+print(f"Test Accuracy: {test_accuracy:.4f}")
+print("Sample test predictions:", test_predictions[:5])
 
-#Find the top N similar images
-N = 5
-distances, indices = knn.kneighbors([query_features], n_neighbors=N, return_distance=True)
-print(distances)
+#------------------------------------------------------------------------------------------------------
+# Generate the confusion matrix
+#------------------------------------------------------------------------------------------------------
+cm = confusion_matrix(test_labels, test_predictions)
 
-# To classify it as the same object, we define a threshold
-threshold = 0.2
+# Display the confusion matrix
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
+disp.plot(cmap=plt.cm.Blues)
+plt.savefig('plots/cm_knn2.png')
 
+#------------------------------------------------------------------------------------------------------
+# Top 5 most confidently correct predictions
+#------------------------------------------------------------------------------------------------------
 
-query_img = mpimg.imread(query_image_path)
-query_index = np.where(np.array(img_paths) == query_image_path)[0][0]
-filtered_indices = np.delete(indices[0], np.where(indices[0] == query_index))
+# Calculate the sum of distances for each test sample
+cumulative_distances = np.sum(distances, axis=1)
 
-# If the query image is in our database of features, it has to be below the threshold defined above. Here we check this
-if query_image_path in [img_paths[i] for i in filtered_indices[0]] and distances[0][0] < threshold:
-    print("Query image classified as the same object")
-    result_label = query_label
+# Get indices of the 5 most correct predictions based on smallest cumulative distances
+top_5_indices = np.argsort(cumulative_distances)[:5]
 
-    # Display the query image
-    plt.subplot(1, 2, 1)
-    plt.imshow(query_img)
-    plt.title('Query Image')
-    plt.axis('off')
+print("Top 5 most correct predictions based on smallest cumulative distances:")
+for idx in top_5_indices:
+    print(f"Test Image Path: {test_img_paths[idx]}")
+    print(f"Predicted Label: {test_predictions[idx]}")
+    print(f"Actual Label: {test_labels[idx]}")
+    print(f"Distances: {distances[idx]}")
+    # Get the paths of the nearest neighbors
+    neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+    print(f"Paths of nearest neighbors: {neighbor_paths}")
+    print()  # for better readability
 
-    # Find the index of the query image in the indices array
-    query_index = [i for i, img_path in enumerate(img_paths) if img_path == query_image_path][0]
-    print(query_index)
+#------------------------------------------------------------------------------------------------------
+# Visualise the top 5 most confidently correct predictions 
+#------------------------------------------------------------------------------------------------------
+label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}  
+# Function to load and display images
+def load_and_display_image(img_path, ax, title):
+    image = Image.open(img_path)
+    ax.imshow(image)
+    ax.set_title(title)
+    ax.axis('off')
 
-    # Display the similar image
-    similar_img_path = img_paths[indices[0][0]]  # Assuming the most similar image is the first one
-    print(similar_img_path)
-    similar_img = mpimg.imread(similar_img_path)
-    plt.subplot(1, 2, 2)
-    plt.imshow(similar_img)
-    plt.title('Similar Image')
-    plt.axis('off')
+# Display the top 5 most confident predictions along with their nearest neighbors
+fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
 
-    plt.savefig('plots/knn_same_image.png')
+for row, idx in enumerate(top_5_indices):
+    test_image_path = test_img_paths[idx]
+    predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
+    actual_label = label_map[test_labels[idx]]  # Map numeric label to name
+    distances_to_neighbors = distances[idx]
+    neighbor_indices = indices[idx]
+    neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
 
-else:
-    # If not same object, do prior-based classification
-    top_n_labels = labels[indices[0]]
-    prior_distribution = {label: np.sum(top_n_labels == label) / N for label in np.unique(top_n_labels)}
-    classifier_probabilities = knn.predict_proba([query_features])[0]
-    adjusted_probabilities = {label: classifier_probabilities[i] * prior_distribution.get(label, 0)
-                              for i, label in enumerate(knn.classes_)}
-    # Normalise adjusted probabilities
-    total_prob = sum(adjusted_probabilities.values())
-    normalised_probabilities = {label: prob / total_prob for label, prob in adjusted_probabilities.items()}
-    result_label = max(normalised_probabilities, key=normalised_probabilities.get)
-    print("Query image classified as:", result_label)
-   
+    # Display the test image
+    load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
 
-#------------------------------------------------------------------------------------------------------------------------
-# Visualise similar images
-#------------------------------------------------------------------------------------------------------------------------
-
-# # Retrieve file paths and labels of the top N similar images
-# top_n_image_paths = [img_paths[i] for i in top_n_indices]
-# top_n_labels = [labels[i] for i in top_n_indices]
-# print(top_n_image_paths)
+    # Display the 5 nearest neighbors
+    for col, neighbor_idx in enumerate(neighbor_indices):
+        neighbor_path = train_img_paths[neighbor_idx]
+        neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
+        distance = distances_to_neighbors[col]
+        load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 
-# def visualise_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n):
-#     plt.figure(figsize=(15, 5))
-#     # Plot the query image
-#     query_img = Image.open(query_image_path).convert('RGB')
-#     plt.subplot(1, n+1, 1)
-#     plt.imshow(query_img)
-#     plt.title(f"Query Image (Label: {query_label})")
-#     plt.axis('off')
-#     # Plot the top N similar images
-#     for i, (img_path, label) in enumerate(zip(top_n_image_paths, top_n_labels), 1):
-#         img = Image.open(img_path).convert('RGB')
-#         plt.subplot(1, n+1, i+1)
-#         plt.imshow(img)
-#         plt.title(f"Label: {label}")
-#         plt.axis('off')
-#     plt.savefig('plots/top images2_euclid.png')
+plt.tight_layout()
+plt.savefig('plots/knnsimilarity3.png')
 
-# visualise_similar_images(query_image_path, top_n_image_paths, top_n_labels, n=n)
+#------------------------------------------------------------------------------------------------------
+# Top 5 most confidently incorrect predictions
+#------------------------------------------------------------------------------------------------------
+# Identify incorrectly predicted samples
+incorrect_indices = np.where(test_predictions != test_labels)[0]
+
+# Sort the incorrectly predicted samples by cumulative distances
+sorted_incorrect_indices = incorrect_indices[np.argsort(cumulative_distances[incorrect_indices])]
+
+# Get the top 5 most confidently incorrect predictions
+top_5_incorrect_indices = sorted_incorrect_indices[:5]
+
+# Display the top 5 most confidently incorrect predictions along with paths of their nearest neighbors
+print("Top 5 most confidently incorrect predictions based on smallest cumulative distances:")
+
+for idx in top_5_incorrect_indices:
+    print(f"Test Image Path: {test_img_paths[idx]}")
+    print(f"Predicted Label: {test_predictions[idx]}")
+    print(f"Actual Label: {test_labels[idx]}")
+    print(f"Distances: {distances[idx]}")
+    # Get the paths of the nearest neighbors
+    neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+    print(f"Paths of nearest neighbors: {neighbor_paths}")
+    print()  # for better readability
+
+
+fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
+
+for row, idx in enumerate(top_5_incorrect_indices):
+    test_image_path = test_img_paths[idx]
+    predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
+    actual_label = label_map[test_labels[idx]]  # Map numeric label to name
+    distances_to_neighbors = distances[idx]
+    neighbor_indices = indices[idx]
+    neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
+
+    # Display the test image
+    load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
+
+    # Display the 5 nearest neighbors
+    for col, neighbor_idx in enumerate(neighbor_indices):
+        neighbor_path = train_img_paths[neighbor_idx]
+        neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
+        distance = distances_to_neighbors[col]
+        load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
+
+plt.tight_layout()
+plt.savefig('plots/knnincorrect.png')
+
+#save all the paths to log files 
