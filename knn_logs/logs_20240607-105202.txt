@@ -1,0 +1,72 @@
+Training label distribution: {0: '640.0000', 1: '632.0000', 2: '721.0000'}
+Validation label distribution: {0: '74.0000', 1: '73.0000', 2: '74.0000'}
+Test label distribution:  {0: '75.0000', 1: '85.0000', 2: '86.0000'}
+Batch Size:  16
+Validation Split:  0.1
+Test Split:  0.1
+Shuffle Dataset:  True
+Random Seed:  42
+Test Split:  0.1
+Number of Classes: 3
+Hidden Features:  512
+Validation Accuracy: 0.9366515837104072
+Sample predictions:  [2 1 2 1 0]
+Test Accuracy: 0.9390243902439024
+Sample test predictions: [0 1 0 0 2]
+Top 5 most correct predictions based on smallest cumulative distances:
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 68.JPG
+Predicted Label: 1
+Actual Label: 1
+Distances: [0.0393281  0.04095989 0.04108405 0.04264432 0.04329711]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 161.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 164.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 56.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 62.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 222.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.4.JPG
+Predicted Label: 0
+Actual Label: 0
+Distances: [0.03285497 0.03470427 0.04427582 0.04536772 0.05266857]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.8.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.3.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.1.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.7.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/CHR NY 25.10.16 117.2.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 166.JPG
+Predicted Label: 1
+Actual Label: 1
+Distances: [0.04023808 0.04102576 0.04187757 0.04278231 0.04469585]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 61.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 150.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 149.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 106.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 66.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 174.JPG
+Predicted Label: 1
+Actual Label: 1
+Distances: [0.03497392 0.0378226  0.04393065 0.04751045 0.05198002]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 62.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 121.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 168.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 171.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 153.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 12.JPG
+Predicted Label: 1
+Actual Label: 1
+Distances: [0.03707141 0.04398626 0.04582655 0.05042368 0.05163169]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 7.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 11.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 15.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 5.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/BRK 29.4.2020 CUN.TAB 8.JPG']
+
+Top 5 most confidently incorrect predictions based on smallest cumulative distances
+:Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 13-4-2011, Lot 211.7.jpg
+Predicted Label: 2
+Actual Label: 0
+Distances: [0.10725051 0.14715034 0.15951753 0.16196704 0.16370022]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 13-4-2011, Lot 211.1.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Bonhams, London, 13-4-2011, Lot 228.2.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Bonhams, London, 23-5-2012, Lot 222.7.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Bonhams, London, 13-4-2011, Lot 233.5.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 13-4-2011, Lot 36.1.jpg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Gorny & Mosch, Munich, 30_06_2017, Lot 231.2.jpg
+Predicted Label: 2
+Actual Label: 1
+Distances: [0.15027338 0.15038085 0.15179706 0.15250719 0.15548033]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 16_12_2020, Lot 368.1.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 16_06_2016, Lot 418.2.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 27_06_2019, Lot 508.3.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 22_07_2020, Lot 412.11.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 14_12_2016, Lot 600.1.jpg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Bonhams, London, 1-4-2014, Lot 114.3.jpg
+Predicted Label: 1
+Actual Label: 0
+Distances: [0.14274609 0.15160495 0.1544205  0.16484725 0.16518211]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 29-6-2011, Lot 195.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Gorny and Mosch, 17-6-2015, Lot 382.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch 14-12-2011, Lot 463.jpeg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Gorny and Mosch, 16-12-2015, Lot 480A.2.jpeg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Bonhams, Oxford, 15-4-2015, Lot 436.2.jpg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/CHR NY 7.12.2011 2.JPG
+Predicted Label: 1
+Actual Label: 2
+Distances: [0.14752    0.14767134 0.15529639 0.1651938  0.1694507 ]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/CHR NY 4.6.2015 110.4.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Gorny & Mosch, Munich, 12_12_19, Lot 466.5.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Tools/Εργαλεία Λίθινα/Charles Ede, Christmas 2015, Lot 54.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/CHR NY 4.6.2015 104.3.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/CHR NY 4.6.2015 104.2.JPG']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 20-6-2012, Lot 226.1.jpeg
+Predicted Label: 1
+Actual Label: 0
+Distances: [0.14023137 0.16856623 0.17712206 0.1829313  0.18826288]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Gorny and Mosch, 20-6-2012, Lot 226.2.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/CHR NY 4.6.2015 108.4.JPG', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Accessories/Berge, Paris, 29-5-2013, Lot 210.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Bonhams, London, 23-5-2012, Lot 94.4.jpg', '/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4/Inscriptions/Berge, Paris, 30-5-2015, Lot 227.jpg']

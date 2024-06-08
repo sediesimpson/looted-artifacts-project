@@ -13,3 +13,5 @@ slurmfiles/
 machinefiles/
 saliency_maps/
 saliency_maps*
+knnplots/
+knnplots*

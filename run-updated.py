@@ -20,23 +20,23 @@ import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
-from utils import *
+from gradcam import *
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=25)
+parser.add_argument('--num_epochs', type=int, default=2)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/la_data")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/TD10C")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
 parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--num_classes', type=int, default=29)
+parser.add_argument('--num_classes', type=int, default=10)
 parser.add_argument('--hidden_features', type=int, default=512)
 args = parser.parse_args()
 
@@ -148,22 +148,9 @@ def validate(model, valid_loader, criterion, device):
     accuracy = 100.0 * correct / total
     print('Validation Loss: {:.4f}, Validation Accuracy: {:.2f}%'.format(validation_loss, accuracy))
     return validation_loss, accuracy
-#--------------------------------------------------------------------------------------------------------------------------
-# Grid searching to find optimal parameters 
-#--------------------------------------------------------------------------------------------------------------------------
-# param_grid = {
-#     'learning_rate': [0.001, 0.01, 0.1],
-#     'momentum': [0.8, 0.9, 0.99],
-#     'batch_size': [32, 64, 128]
-# }
 
-# grid_search = GridSearchCV(estimator=CustomResNetEstimator(num_classes=10, hidden_features=256), param_grid=param_grid, scoring=make_scorer(accuracy_score), cv=3)
-# grid_search.fit(train_loader, val_loader)  # X=train_loader, y=val_loader
-#--------------------------------------------------------------------------------------------------------------------------
-# print(f"Best parameters: {grid_search.best_params_}")
-# print(f"Best score: {grid_search.best_score_}")
 
-def test(model, test_loader, device, top_n=3, saliency_n=5):
+def test(model, test_loader, device, top_n=3):
     model.eval()
     correct = 0
     total = 0
@@ -182,7 +169,6 @@ def test(model, test_loader, device, top_n=3, saliency_n=5):
     confidence_correct = []
     confidence_incorrect = []
     borderline_cases = []
-    saliency_maps = []
 
     with torch.no_grad():
         for images, labels, paths in test_loader:
@@ -247,23 +233,6 @@ def test(model, test_loader, device, top_n=3, saliency_n=5):
     confidence_incorrect.sort(key=lambda x: x[0])
     borderline_cases.sort(key=lambda x: x[0])
 
-    # Generate saliency maps for best N and worst N
-    best_indices = [idx for _, idx in confidence_correct[:saliency_n]]
-    worst_indices = [idx for _, idx in confidence_incorrect[:saliency_n]]
-
-    for idx in best_indices + worst_indices:
-        # Calculate batch index and image index within batch
-        batch_index = idx // len(images)
-        image_index = idx % len(images)
-
-        input_image = images[image_index].unsqueeze(0).to(device)
-        predicted_class = all_predictions[idx]
-        saliency_map = generate_saliency_map(model, input_image, predicted_class)
-        saliency_maps.append((all_paths[idx], saliency_map, predicted_class, all_labels[idx]))
-
-    print(f'Number of saliency maps generated: {len(saliency_maps)}')
-
-
     # top N information
     top_n_info = {
         "all_top_n_predictions": all_top_n_predictions,
@@ -278,7 +247,7 @@ def test(model, test_loader, device, top_n=3, saliency_n=5):
         "confusion_matrix": cm
     }
 
-    return accuracy, cm_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info, saliency_maps
+    return accuracy, cm_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Function to visualise misclassified images 
@@ -362,7 +331,7 @@ with open(log_file, 'a') as log:
             log.write(f'\nSaved Best Model with Validation Accuracy: {val_accuracy:.2f}%\n')
 
     # Extract all info from test function     
-    test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info, saliency_maps = test(model, test_loader, device, top_n=3, saliency_n=5)
+    test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3, saliency_n=5)
 
     # Write confusion matrix and test accuracy to log file 
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
@@ -441,9 +410,9 @@ with open(log_file, 'a') as log:
         log.write(f"Top {top_n} Predictions: {all_top_n_predictions[idx]}\n")
         log.write(f"Top {top_n} Probabilities: {all_top_n_probabilities[idx]}\n\n")
 
-# #--------------------------------------------------------------------------------------------------------------------------
-# # Visualising the distribution of correct labels 
-# #--------------------------------------------------------------------------------------------------------------------------  
+#--------------------------------------------------------------------------------------------------------------------------
+# Visualising the distribution of correct labels 
+#--------------------------------------------------------------------------------------------------------------------------  
     # Extract correct class labels for visualization
     correct_labels = [all_labels[idx] for idx in correctly_classified_indices]
 
@@ -457,7 +426,7 @@ with open(log_file, 'a') as log:
     plt.ylabel('Frequency')
     plt.title('Distribution of Correctly Classified Classes')
     plt.xticks(rotation=45)
-    plt.savefig('plots/DoC.png')
+    plt.savefig('plots/DoC_10.png')
 
     # Plot confusion matrix
     plt.figure(figsize=(10, 8))
@@ -465,12 +434,14 @@ with open(log_file, 'a') as log:
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
     plt.title('Confusion Matrix')
-    plt.savefig('plots/cm.png')
+    plt.savefig('plots/cm_10.png')
 
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Plot the saliency maps
 #--------------------------------------------------------------------------------------------------------------------------  
-plot_saliency_maps(saliency_maps, output_dir="saliency_maps")
+# Visualize Grad-CAM for specific cases
+#visualise_gradcam(model, test_loader, top_n_info, device, num_images=5)
+
 #visualise_misclassified(misclassified_paths, misclassified_labels, misclassified_predictions, max_images=5)
 

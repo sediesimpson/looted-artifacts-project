@@ -1,33 +1,31 @@
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
-import numpy as np
-from finaldataloader import *
-from tqdm import tqdm
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import os
 import sys
-from scipy.spatial.distance import cosine
-import matplotlib.pyplot as plt
-import cv2
-from sklearn.neighbors import KNeighborsClassifier
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-import os
-from PIL import Image
-import torch
+from tqdm import tqdm
 import numpy as np
-import cv2
-from sklearn.metrics import roc_curve, auc
-from torchvision.models import ResNet50_Weights
+
+import torch
+import torch.nn as nn
 import torch.optim as optim
-import matplotlib.image as mpimg
-from sklearn.neighbors import NearestNeighbors
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+from torchvision import models, transforms
+from torchvision import transforms
+from torchvision.models import ResNet50_Weights
+
+from finaldataloader import *
+
 from scipy.spatial.distance import cosine
+from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
+from sklearn.metrics import roc_curve, auc
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
+
+from PIL import Image
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import cv2
+
+import time
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -78,7 +76,7 @@ random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/Test Dataset 4"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10C"
 dataset = CustomImageDataset(root_dir)
 
 # Get label information
@@ -127,9 +125,10 @@ train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
 valid_label_counts = count_labels_in_loader(valid_loader, dataset.class_to_idx)
 test_label_counts = count_labels_in_loader(test_loader, dataset.class_to_idx)
 
-print("Training label distribution:", train_label_counts)
-print("Validation label distribution:", valid_label_counts)
-print("Test label distribution:", test_label_counts)
+train_label_counts = {k: f"{v:.4f}" for k, v in train_label_counts.items()}
+valid_label_counts = {k: f"{v:.4f}" for k, v in valid_label_counts.items()}
+test_label_counts = {k: f"{v:.4f}" for k, v in test_label_counts.items()}
+
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
 #------------------------------------------------------------------------------------------------------------------------
@@ -202,7 +201,6 @@ print(f"Validation Accuracy: {val_accuracy:.4f}")
 print("Sample predictions:", val_predictions[:5])
 
 test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
-print(test_labels[1:10], test_img_paths[1:10])
 test_predictions = knn_classifier.predict(test_features)
 test_accuracy = accuracy_score(test_labels, test_predictions)
 distances, indices = knn_classifier.kneighbors(test_features, n_neighbors=5) # Get the nearest neighbors for each test image
@@ -218,7 +216,33 @@ cm = confusion_matrix(test_labels, test_predictions)
 # Display the confusion matrix
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
 disp.plot(cmap=plt.cm.Blues)
-plt.savefig('plots/cm_knn2.png')
+plt.savefig('knnplots/cm_knn_08062024.png')
+
+#------------------------------------------------------------------------------------------------------------------------
+# Log file generation
+#------------------------------------------------------------------------------------------------------------------------
+# Generate a timestamp to include in the log file name
+timestamp = time.strftime("%Y%m%d-%H%M%S")
+log_dir = "knn_logs"
+os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
+log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
+
+with open(log_file, 'a') as log:
+    log.write(f"Training label distribution: {train_label_counts}\n")
+    log.write(f"Validation label distribution: {valid_label_counts}\n")
+    log.write(f"Test label distribution:  {test_label_counts}\n")
+    log.write(f"Batch Size:  {batch_size}\n")
+    log.write(f"Validation Split:  {validation_split}\n")
+    log.write(f"Test Split:  {test_split}\n")
+    log.write(f"Shuffle Dataset:  {shuffle_dataset}\n")
+    log.write(f"Random Seed:  {random_seed}\n")
+    log.write(f"Test Split:  {test_split}\n")
+    log.write(f"Number of Classes: {num_classes}\n")
+    log.write(f"Hidden Features:  {hidden_features}\n")
+    log.write(f"Validation Accuracy: {val_accuracy}\n")
+    log.write(f"Sample predictions:  {val_predictions[:5]}\n")
+    log.write(f"Test Accuracy: {test_accuracy}\n")
+    log.write(f"Sample test predictions: {test_predictions[:5]}\n")
 
 #------------------------------------------------------------------------------------------------------
 # Top 5 most confidently correct predictions
@@ -230,16 +254,18 @@ cumulative_distances = np.sum(distances, axis=1)
 # Get indices of the 5 most correct predictions based on smallest cumulative distances
 top_5_indices = np.argsort(cumulative_distances)[:5]
 
-print("Top 5 most correct predictions based on smallest cumulative distances:")
-for idx in top_5_indices:
-    print(f"Test Image Path: {test_img_paths[idx]}")
-    print(f"Predicted Label: {test_predictions[idx]}")
-    print(f"Actual Label: {test_labels[idx]}")
-    print(f"Distances: {distances[idx]}")
-    # Get the paths of the nearest neighbors
-    neighbor_paths = [train_img_paths[i] for i in indices[idx]]
-    print(f"Paths of nearest neighbors: {neighbor_paths}")
-    print()  # for better readability
+
+with open(log_file, 'a') as log:
+    log.write("Top 5 most correct predictions based on smallest cumulative distances:\n")
+    for idx in top_5_indices:
+        log.write(f"Test Image Path: {test_img_paths[idx]}\n")
+        log.write(f"Predicted Label: {test_predictions[idx]}\n")
+        log.write(f"Actual Label: {test_labels[idx]}\n")
+        log.write(f"Distances: {distances[idx]}\n")
+        # Get the paths of the nearest neighbors
+        neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+        log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
+        log.write("\n")  # for better readability
 
 #------------------------------------------------------------------------------------------------------
 # Visualise the top 5 most confidently correct predictions 
@@ -275,7 +301,7 @@ for row, idx in enumerate(top_5_indices):
 
 
 plt.tight_layout()
-plt.savefig('plots/knnsimilarity3.png')
+plt.savefig('knnplots/knncorrect_08062024.png')
 
 #------------------------------------------------------------------------------------------------------
 # Top 5 most confidently incorrect predictions
@@ -290,17 +316,18 @@ sorted_incorrect_indices = incorrect_indices[np.argsort(cumulative_distances[inc
 top_5_incorrect_indices = sorted_incorrect_indices[:5]
 
 # Display the top 5 most confidently incorrect predictions along with paths of their nearest neighbors
-print("Top 5 most confidently incorrect predictions based on smallest cumulative distances:")
+with open(log_file, 'a') as log:
+    log.write("Top 5 most confidently incorrect predictions based on smallest cumulative distances:\n")
 
-for idx in top_5_incorrect_indices:
-    print(f"Test Image Path: {test_img_paths[idx]}")
-    print(f"Predicted Label: {test_predictions[idx]}")
-    print(f"Actual Label: {test_labels[idx]}")
-    print(f"Distances: {distances[idx]}")
-    # Get the paths of the nearest neighbors
-    neighbor_paths = [train_img_paths[i] for i in indices[idx]]
-    print(f"Paths of nearest neighbors: {neighbor_paths}")
-    print()  # for better readability
+    for idx in top_5_incorrect_indices:
+        log.write(f"Test Image Path: {test_img_paths[idx]}\n")
+        log.write(f"Predicted Label: {test_predictions[idx]}\n")
+        log.write(f"Actual Label: {test_labels[idx]}\n")
+        log.write(f"Distances: {distances[idx]}\n")
+        # Get the paths of the nearest neighbors
+        neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+        log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
+        #log.write()  # for better readability
 
 
 fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
@@ -324,6 +351,5 @@ for row, idx in enumerate(top_5_incorrect_indices):
         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 plt.tight_layout()
-plt.savefig('plots/knnincorrect.png')
+plt.savefig('knnplots/knnincorrect_08062024.png')
 
-#save all the paths to log files 
