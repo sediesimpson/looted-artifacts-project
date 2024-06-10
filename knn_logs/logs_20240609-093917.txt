@@ -1,0 +1,72 @@
+Training label distribution: {0: '10397.0000', 1: '6245.0000', 2: '747.0000', 3: '5900.0000', 4: '1729.0000', 5: '3191.0000', 6: '1177.0000', 7: '574.0000', 8: '15365.0000', 9: '903.0000'}
+Validation label distribution: {0: '1183.0000', 1: '692.0000', 2: '80.0000', 3: '637.0000', 4: '175.0000', 5: '384.0000', 6: '141.0000', 7: '75.0000', 8: '1663.0000', 9: '106.0000'}
+Test label distribution:  {0: '1269.0000', 1: '777.0000', 2: '71.0000', 3: '743.0000', 4: '207.0000', 5: '400.0000', 6: '155.0000', 7: '75.0000', 8: '1900.0000', 9: '110.0000'}
+Batch Size:  32
+Validation Split:  0.1
+Test Split:  0.1
+Shuffle Dataset:  True
+Random Seed:  42
+Test Split:  0.1
+Number of Classes: 10
+Hidden Features:  51
+Validation Accuracy: 0.871690031152648
+Sample predictions:  [6 8 0 5 3]
+Test Accuracy: 0.8708603469423515
+Sample test predictions: [1 8 8 4 8]
+Top 5 most correct predictions based on smallest cumulative distances:
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 3a.jpg
+Predicted Label: 5
+Actual Label: 5
+Distances: [0.00566554 0.00825596 0.00869066 0.0127039  0.01349872]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 7a.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 6a.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 2a.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 1a.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Cahn AG, 10-28 January 2020, Gems, 4a.jpg']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR 2-16.7.2020 110a.JPG
+Predicted Label: 8
+Actual Label: 8
+Distances: [0.00768459 0.01562643 0.01594853 0.01846462 0.02159601]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR 13-10-2020 33a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR 13-10-2020 33b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR 2-16.7.2020 110b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR NY 11.12.14 94a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Άρματα/CHR NY 4.6.2015 52a.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.7.jpg
+Predicted Label: 3
+Actual Label: 3
+Distances: [0.01307261 0.01536262 0.01928544 0.02039975 0.02166498]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.9.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.5.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.8.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.3.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 28-11-2017, Lot 66.4.jpg']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Άρματα/CHR LND 4.12.2019 433b.JPG
+Predicted Label: 8
+Actual Label: 8
+Distances: [0.01372641 0.02000564 0.02010751 0.0219143  0.0220145 ]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Άρματα/CHR LND 4.12.2019 433a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Άρματα/CHR NY 4.6.2015 52a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι Λοιποί/CHR NY 4.6.2015 58a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/CHR LND 25.10.17 71b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με  Ζώα, χωρίς Πολεμιστές/CHR 13-10-2020 33a.JPG']
+
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/Σε μαύρο πλαίσιο/CHR NY 31.10.18 33b.JPG
+Predicted Label: 8
+Actual Label: 8
+Distances: [0.00484538 0.01757336 0.0244168  0.02570468 0.02609372]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/Σε μαύρο πλαίσιο/CHR LND 25.10.17 63b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/Σε μαύρο πλαίσιο/CHR NY 31.10.18 33a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Άρματα/CHR NY 25.10.16 14.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/Σε μαύρο πλαίσιο/CHR NY 5.6.14 78b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ελληνικά/Αγγεία Ελληνικά Αμφορείς/Αμφορείς Μελανόμορφοι/Αμφορείς Μελανόμορφοι με Πολεμιστές, χωρίς  Άρματα/Σε μαύρο πλαίσιο/CHR LND 25.10.17 63a.JPG']
+
+Top 5 most confidently incorrect predictions based on smallest cumulative distances:
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Bonhams, London, 23-10-2013, Lot 173.1.jpg
+Predicted Label: 3
+Actual Label: 5
+Distances: [0.         0.         0.0683189  0.0683189  0.09678131]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Πόρπες - Περόνες/Bonhams, London, 23-10-2013, Lot 173.1.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 23-10-2013, Lot 173.1.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Bonhams, London, 23-10-2013, Lot 173.2.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Bonhams, London, 23-10-2013, Lot 173.2.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Πόρπες - Περόνες/Bonhams, London, 23-10-2013, Lot 173.3.jpg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Ζωόμορφα/Πτηνά/BRK MoCA 28.4.20 7.JPG
+Predicted Label: 8
+Actual Label: 0
+Distances: [0.         0.06746751 0.06746751 0.06746751 0.07574171]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Μεταλλικά/Αγγεία Μεταλλικά, Χάλκινα/BRK MoCA 28.4.20 7.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Μεταλλικά/Αγγεία Μεταλλικά, Χάλκινα/BRK 28.4.2020 CB 5.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Ζωόμορφα/Πτηνά/BRK 28.4.2020 CB 5.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Ζωόμορφα/Ψάρια/BRK 28.4.2020 CB 5.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ιταλικά/Αγγεία Ιταλικά Οινοχόες/Αγγεία Ιταλικά Οινοχόες Ερυθρόμορφες/Αγγεία Ιταλικά Οινοχόες Ερυθρόμορφες,, Μόνο Με Φυτική Διακόσμηση/Gorny and Mosch, 16-12-2015, Lot 543.1.jpeg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Κλασσικά - Ετρουσκικά/Ειδώλια Γυναικεία Λίθινα/CHR NY 9.6.11 153a.JPG
+Predicted Label: 6
+Actual Label: 0
+Distances: [2.3841858e-07 2.3841858e-07 2.3841858e-07 1.4088500e-01 1.4756054e-01]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Statues/Αγάλματα Κλασσικά - Ετρουσκικά/Αγάλματα Γυναικεία Γυμνά/CHR NY 9.6.11 153a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Statues/Αγάλματα Κλασσικά - Ετρουσκικά/Αγάλματα Ανδρικά Γυμνά/CHR NY 9.6.11 153a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Κλασσικά - Ετρουσκικά/Ειδώλια Ανδρικά Λίθινα/CHR NY 9.6.11 153a.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Statues/Αγάλματα Κλασσικά - Ετρουσκικά/Αγάλματα Ανδρικά Γυμνά/Royal Athena Galleries Vol XXIV 2013 7b.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Statues/Αγάλματα Κλασσικά - Ετρουσκικά/Αγάλματα Ανδρικά Γυμνά/CHR NY 7.12.2011 185a.JPG']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Kallos gallery, 2019, Cat. 4, no. 14.1.jpg
+Predicted Label: 3
+Actual Label: 5
+Distances: [0.         0.07494259 0.07494259 0.09374136 0.09374136]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Kallos gallery, 2019, Cat. 4, no. 14.1.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Kallos gallery, 2019, Cat. 4, no. 14.3.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Kallos gallery, 2019, Cat. 4, no. 14.3.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Jewelry/Δαχτυλίδια/Kallos gallery, 2019, Cat. 4, no. 14.4.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Seal Stones - Seals - Stamps/Kallos gallery, 2019, Cat. 4, no. 14.4.jpg']
+Test Image Path: /rds/user/sms227/hpc-work/dissertation/data/TD10C/Heads/Κεφάλια Αιγυπτιακά/Gorny & Mosch, Munich, 14_12_2016, Lot 459.jpg
+Predicted Label: 0
+Actual Label: 1
+Distances: [0.02226394 0.04395211 0.08770537 0.09343392 0.09590399]
+Paths of nearest neighbors: ['/rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Αιγυπτιακά/Ειδώλια Γυναικεία/Γυναικεία Μεταλλικά/Gorny & Mosch, Munich, 26_06_2018, Lot 407.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Heads/Κεφάλια Αιγυπτιακά/Gorny & Mosch, Munich, 13_12_2017, Lot 482.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Weapons/Ρόπαλα/Gorny & Mosch, Munich, 27_06_2019, Lot 461.jpg', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Figurines/Ειδώλια Ζωόμορφα/Κριάρια/Royal Athena Galleries 2018 160.JPG', '/rds/user/sms227/hpc-work/dissertation/data/TD10C/Vases/Αγγεία Ιταλικά/Αγγεία Ιταλικά Dunian/Αγγεία Ιταλικά Dunian, καμία λαβή/Gorny and Mosch, 18-12-2013, Lot 443.1.jpeg']

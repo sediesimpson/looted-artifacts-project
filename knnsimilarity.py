@@ -69,7 +69,7 @@ class CustomResNet50(nn.Module):
 #--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
-batch_size = 16
+batch_size = 32
 validation_split = 0.1
 shuffle_dataset = True
 random_seed = 42
@@ -176,7 +176,7 @@ def extract_features(dataloader, model, device):
 #------------------------------------------------------------------------------------------------------------------------
 # Model
 #------------------------------------------------------------------------------------------------------------------------
-num_classes = 3
+num_classes = 10
 hidden_features = 512
 model = CustomResNet50(num_classes=num_classes, hidden_features=hidden_features)
 
@@ -216,6 +216,8 @@ cm = confusion_matrix(test_labels, test_predictions)
 # Display the confusion matrix
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
 disp.plot(cmap=plt.cm.Blues)
+plt.setp(disp.ax_.get_xticklabels(), rotation=90)
+plt.tight_layout()
 plt.savefig('knnplots/cm_knn_08062024.png')
 
 #------------------------------------------------------------------------------------------------------------------------
@@ -270,7 +272,8 @@ with open(log_file, 'a') as log:
 #------------------------------------------------------------------------------------------------------
 # Visualise the top 5 most confidently correct predictions 
 #------------------------------------------------------------------------------------------------------
-label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}  
+#label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}  
+label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
 # Function to load and display images
 def load_and_display_image(img_path, ax, title):
     image = Image.open(img_path)

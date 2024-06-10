@@ -27,7 +27,7 @@ from gradcam import *
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=2)
+parser.add_argument('--num_epochs', type=int, default=25)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
@@ -331,7 +331,7 @@ with open(log_file, 'a') as log:
             log.write(f'\nSaved Best Model with Validation Accuracy: {val_accuracy:.2f}%\n')
 
     # Extract all info from test function     
-    test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3, saliency_n=5)
+    test_accuracy, confusion_matrix_df, class_names, misclassified_images, misclassified_labels, misclassified_predictions, misclassified_paths, top_n_info = test(model, test_loader, device, top_n=3)
 
     # Write confusion matrix and test accuracy to log file 
     log.write(f'Test Accuracy: {test_accuracy:.2f}%\n')
