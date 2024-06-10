@@ -1,0 +1,16 @@
+Training label distribution: {0: '638.0000', 1: '642.0000', 2: '707.0000'}
+Validation label distribution: {0: '71.0000', 1: '64.0000', 2: '85.0000'}
+Test label distribution:  {0: '78.0000', 1: '81.0000', 2: '86.0000'}
+Batch Size:  32
+Validation Split:  0.1
+Test Split:  0.1
+Shuffle Dataset:  True
+Random Seed:  42
+Test Split:  0.1
+Number of Classes: 3
+Hidden Features:  512
+Validation Accuracy: 0.9409090909090909
+Sample predictions:  [2 0 1 2 2]
+Test Accuracy: 0.9346938775510204
+Sample test predictions: [1 2 0 2 2]
+Predicted Label for the new query image: 1Nearest neighbors for the new query image:Path: /rds/user/sms227/hpc-work/dissertation/data/TD4A/Inscriptions/CHR PAR Mar.D. Serres Coll. 16.1 &17.2.11 144.3.JPGPath: /rds/user/sms227/hpc-work/dissertation/data/TD4A/Inscriptions/CHR PAR Mar.D. Serres Coll. 16.1 &17.2.11 144.2.JPGPath: /rds/user/sms227/hpc-work/dissertation/data/TD4A/Inscriptions/Bonhams, London, 8-5-2013, Lot 146.1.jpgPath: /rds/user/sms227/hpc-work/dissertation/data/TD4A/Inscriptions/CE, 2020, no. 31a.pngPath: /rds/user/sms227/hpc-work/dissertation/data/TD4A/Inscriptions/Bonhams, London, 23-10-2012, Lot 248.2.jpg

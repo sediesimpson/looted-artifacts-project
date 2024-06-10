@@ -26,6 +26,8 @@ import matplotlib.image as mpimg
 import cv2
 
 import time
+
+import pickle
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -76,7 +78,7 @@ random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10C"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4A"
 dataset = CustomImageDataset(root_dir)
 
 # Get label information
@@ -176,7 +178,7 @@ def extract_features(dataloader, model, device):
 #------------------------------------------------------------------------------------------------------------------------
 # Model
 #------------------------------------------------------------------------------------------------------------------------
-num_classes = 10
+num_classes = 3
 hidden_features = 512
 model = CustomResNet50(num_classes=num_classes, hidden_features=hidden_features)
 
@@ -194,6 +196,13 @@ val_features, val_labels , val_img_paths = extract_features(valid_loader, model,
 knn_classifier = KNeighborsClassifier(n_neighbors=5, metric='cosine')
 knn_classifier.fit(train_features, train_labels)
 
+# Save the trained k-NN classifier to a file
+with open('knn_models/knn_classifier.pkl', 'wb') as f:
+    pickle.dump(knn_classifier, f)
+
+with open('train_img_paths.pkl', 'wb') as f:
+    pickle.dump(train_img_paths, f)
+    
 # Validate the classifier
 val_predictions = knn_classifier.predict(val_features)
 val_accuracy = accuracy_score(val_labels, val_predictions)
@@ -211,14 +220,14 @@ print("Sample test predictions:", test_predictions[:5])
 #------------------------------------------------------------------------------------------------------
 # Generate the confusion matrix
 #------------------------------------------------------------------------------------------------------
-cm = confusion_matrix(test_labels, test_predictions)
+# cm = confusion_matrix(test_labels, test_predictions)
 
-# Display the confusion matrix
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
-disp.plot(cmap=plt.cm.Blues)
-plt.setp(disp.ax_.get_xticklabels(), rotation=90)
-plt.tight_layout()
-plt.savefig('knnplots/cm_knn_08062024.png')
+# # Display the confusion matrix
+# disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
+# disp.plot(cmap=plt.cm.Blues)
+# plt.setp(disp.ax_.get_xticklabels(), rotation=90)
+# plt.tight_layout()
+# plt.savefig('knnplots/cm_knn_10062024.png')
 
 #------------------------------------------------------------------------------------------------------------------------
 # Log file generation
@@ -246,113 +255,113 @@ with open(log_file, 'a') as log:
     log.write(f"Test Accuracy: {test_accuracy}\n")
     log.write(f"Sample test predictions: {test_predictions[:5]}\n")
 
-#------------------------------------------------------------------------------------------------------
-# Top 5 most confidently correct predictions
-#------------------------------------------------------------------------------------------------------
+# #------------------------------------------------------------------------------------------------------
+# # Top 5 most confidently correct predictions
+# #------------------------------------------------------------------------------------------------------
 
-# Calculate the sum of distances for each test sample
-cumulative_distances = np.sum(distances, axis=1)
+# # Calculate the sum of distances for each test sample
+# cumulative_distances = np.sum(distances, axis=1)
 
-# Get indices of the 5 most correct predictions based on smallest cumulative distances
-top_5_indices = np.argsort(cumulative_distances)[:5]
-
-
-with open(log_file, 'a') as log:
-    log.write("Top 5 most correct predictions based on smallest cumulative distances:\n")
-    for idx in top_5_indices:
-        log.write(f"Test Image Path: {test_img_paths[idx]}\n")
-        log.write(f"Predicted Label: {test_predictions[idx]}\n")
-        log.write(f"Actual Label: {test_labels[idx]}\n")
-        log.write(f"Distances: {distances[idx]}\n")
-        # Get the paths of the nearest neighbors
-        neighbor_paths = [train_img_paths[i] for i in indices[idx]]
-        log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
-        log.write("\n")  # for better readability
-
-#------------------------------------------------------------------------------------------------------
-# Visualise the top 5 most confidently correct predictions 
-#------------------------------------------------------------------------------------------------------
-#label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}  
-label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
-# Function to load and display images
-def load_and_display_image(img_path, ax, title):
-    image = Image.open(img_path)
-    ax.imshow(image)
-    ax.set_title(title)
-    ax.axis('off')
-
-# Display the top 5 most confident predictions along with their nearest neighbors
-fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
-
-for row, idx in enumerate(top_5_indices):
-    test_image_path = test_img_paths[idx]
-    predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
-    actual_label = label_map[test_labels[idx]]  # Map numeric label to name
-    distances_to_neighbors = distances[idx]
-    neighbor_indices = indices[idx]
-    neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
-
-    # Display the test image
-    load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
-
-    # Display the 5 nearest neighbors
-    for col, neighbor_idx in enumerate(neighbor_indices):
-        neighbor_path = train_img_paths[neighbor_idx]
-        neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
-        distance = distances_to_neighbors[col]
-        load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
+# # Get indices of the 5 most correct predictions based on smallest cumulative distances
+# top_5_indices = np.argsort(cumulative_distances)[:5]
 
 
-plt.tight_layout()
-plt.savefig('knnplots/knncorrect_08062024.png')
+# with open(log_file, 'a') as log:
+#     log.write("Top 5 most correct predictions based on smallest cumulative distances:\n")
+#     for idx in top_5_indices:
+#         log.write(f"Test Image Path: {test_img_paths[idx]}\n")
+#         log.write(f"Predicted Label: {test_predictions[idx]}\n")
+#         log.write(f"Actual Label: {test_labels[idx]}\n")
+#         log.write(f"Distances: {distances[idx]}\n")
+#         # Get the paths of the nearest neighbors
+#         neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+#         log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
+#         log.write("\n")  # for better readability
 
-#------------------------------------------------------------------------------------------------------
-# Top 5 most confidently incorrect predictions
-#------------------------------------------------------------------------------------------------------
-# Identify incorrectly predicted samples
-incorrect_indices = np.where(test_predictions != test_labels)[0]
+# #------------------------------------------------------------------------------------------------------
+# # Visualise the top 5 most confidently correct predictions 
+# #------------------------------------------------------------------------------------------------------
+# #label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}  
+# label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
+# # Function to load and display images
+# def load_and_display_image(img_path, ax, title):
+#     image = Image.open(img_path)
+#     ax.imshow(image)
+#     ax.set_title(title)
+#     ax.axis('off')
 
-# Sort the incorrectly predicted samples by cumulative distances
-sorted_incorrect_indices = incorrect_indices[np.argsort(cumulative_distances[incorrect_indices])]
+# # Display the top 5 most confident predictions along with their nearest neighbors
+# fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
 
-# Get the top 5 most confidently incorrect predictions
-top_5_incorrect_indices = sorted_incorrect_indices[:5]
+# for row, idx in enumerate(top_5_indices):
+#     test_image_path = test_img_paths[idx]
+#     predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
+#     actual_label = label_map[test_labels[idx]]  # Map numeric label to name
+#     distances_to_neighbors = distances[idx]
+#     neighbor_indices = indices[idx]
+#     neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
 
-# Display the top 5 most confidently incorrect predictions along with paths of their nearest neighbors
-with open(log_file, 'a') as log:
-    log.write("Top 5 most confidently incorrect predictions based on smallest cumulative distances:\n")
+#     # Display the test image
+#     load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
 
-    for idx in top_5_incorrect_indices:
-        log.write(f"Test Image Path: {test_img_paths[idx]}\n")
-        log.write(f"Predicted Label: {test_predictions[idx]}\n")
-        log.write(f"Actual Label: {test_labels[idx]}\n")
-        log.write(f"Distances: {distances[idx]}\n")
-        # Get the paths of the nearest neighbors
-        neighbor_paths = [train_img_paths[i] for i in indices[idx]]
-        log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
-        #log.write()  # for better readability
+#     # Display the 5 nearest neighbors
+#     for col, neighbor_idx in enumerate(neighbor_indices):
+#         neighbor_path = train_img_paths[neighbor_idx]
+#         neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
+#         distance = distances_to_neighbors[col]
+#         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 
-fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
+# plt.tight_layout()
+# plt.savefig('knnplots/knncorrect_10062024.png')
 
-for row, idx in enumerate(top_5_incorrect_indices):
-    test_image_path = test_img_paths[idx]
-    predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
-    actual_label = label_map[test_labels[idx]]  # Map numeric label to name
-    distances_to_neighbors = distances[idx]
-    neighbor_indices = indices[idx]
-    neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
+# #------------------------------------------------------------------------------------------------------
+# # Top 5 most confidently incorrect predictions
+# #------------------------------------------------------------------------------------------------------
+# # Identify incorrectly predicted samples
+# incorrect_indices = np.where(test_predictions != test_labels)[0]
 
-    # Display the test image
-    load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
+# # Sort the incorrectly predicted samples by cumulative distances
+# sorted_incorrect_indices = incorrect_indices[np.argsort(cumulative_distances[incorrect_indices])]
 
-    # Display the 5 nearest neighbors
-    for col, neighbor_idx in enumerate(neighbor_indices):
-        neighbor_path = train_img_paths[neighbor_idx]
-        neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
-        distance = distances_to_neighbors[col]
-        load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
+# # Get the top 5 most confidently incorrect predictions
+# top_5_incorrect_indices = sorted_incorrect_indices[:5]
 
-plt.tight_layout()
-plt.savefig('knnplots/knnincorrect_08062024.png')
+# # Display the top 5 most confidently incorrect predictions along with paths of their nearest neighbors
+# with open(log_file, 'a') as log:
+#     log.write("Top 5 most confidently incorrect predictions based on smallest cumulative distances:\n")
+
+#     for idx in top_5_incorrect_indices:
+#         log.write(f"Test Image Path: {test_img_paths[idx]}\n")
+#         log.write(f"Predicted Label: {test_predictions[idx]}\n")
+#         log.write(f"Actual Label: {test_labels[idx]}\n")
+#         log.write(f"Distances: {distances[idx]}\n")
+#         # Get the paths of the nearest neighbors
+#         neighbor_paths = [train_img_paths[i] for i in indices[idx]]
+#         log.write(f"Paths of nearest neighbors: {neighbor_paths}\n")
+#         #log.write()  # for better readability
+
+
+# fig, axes = plt.subplots(5, 6, figsize=(15, 15))  # 5 rows, 6 columns (1 test image + 5 neighbors per row)
+
+# for row, idx in enumerate(top_5_incorrect_indices):
+#     test_image_path = test_img_paths[idx]
+#     predicted_label = label_map[test_predictions[idx]]  # Map numeric label to name
+#     actual_label = label_map[test_labels[idx]]  # Map numeric label to name
+#     distances_to_neighbors = distances[idx]
+#     neighbor_indices = indices[idx]
+#     neighbor_paths = [train_img_paths[i] for i in neighbor_indices]
+
+#     # Display the test image
+#     load_and_display_image(test_image_path, axes[row, 0], f'Test Image\nPred: {predicted_label}\nActual: {actual_label}')
+
+#     # Display the 5 nearest neighbors
+#     for col, neighbor_idx in enumerate(neighbor_indices):
+#         neighbor_path = train_img_paths[neighbor_idx]
+#         neighbor_label = label_map[train_labels[neighbor_idx]]  # Map numeric label to name
+#         distance = distances_to_neighbors[col]
+#         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
+
+# plt.tight_layout()
+# plt.savefig('knnplots/knnincorrect_10062024.png')
 

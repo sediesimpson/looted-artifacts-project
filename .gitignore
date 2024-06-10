@@ -14,4 +14,6 @@ machinefiles/
 saliency_maps/
 saliency_maps*
 knnplots/
+knn_logs/
+knn_query_logs/
 knnplots*
