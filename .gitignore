@@ -17,3 +17,7 @@ knnplots/
 knn_logs/
 knn_query_logs/
 knnplots*
+knn_models/
+knn_models*
+knn_classifier.pkl
+knn_classifier*
