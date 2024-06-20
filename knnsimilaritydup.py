@@ -141,21 +141,24 @@ test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
 # print(f"Validation labels for {specific_path}: {val_labels}")
 # print(f"Test labels for {specific_path}: {test_labels}")
 
-# Function to count labels in the DataLoader
 def count_labels_in_loader(loader, class_to_idx):
+    # Initialize label_counts using the class indices directly
     label_counts = {idx: 0 for idx in class_to_idx.values()}
-    
     for _, labels, _ in loader:
-        for label_vector in labels.numpy():
-            for idx, label in enumerate(label_vector):
-                if label == 1:
-                    label_counts[idx] += 1
-    
+        print(len(labels))
+        for idx, label in enumerate(labels):
+            print(label)
+            if label == 1:
+                label_counts[idx] += 1
     return label_counts
+
 
 # Count labels in each DataLoader
 train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
 print(f"Label counts in train loader: {train_label_counts}")
+
+sys.exit(1)
+
 
 valid_label_counts = count_labels_in_loader(valid_loader, dataset.class_to_idx)
 print(f"Label counts in validation loader: {valid_label_counts}")
@@ -385,7 +388,7 @@ for row, idx in enumerate(top_5_indices):
         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 plt.tight_layout()
-plt.savefig('knnplots/multicorrect_120624.png')
+plt.savefig('knnplots/multicorrect_140624.png')
 
 #------------------------------------------------------------------------------------------------------
 # # Top 5 most confidently incorrect predictions
@@ -435,7 +438,7 @@ for row, idx in enumerate(top_5_incorrect_indices):
         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 plt.tight_layout()
-plt.savefig('knnplots/multiincorrect_120624.png')
+plt.savefig('knnplots/multiincorrect_140624.png')
 
 
 

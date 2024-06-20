@@ -31,7 +31,7 @@ parser.add_argument('--num_epochs', type=int, default=25)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/TD10C")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/TD10A")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
@@ -52,14 +52,6 @@ test_split = args.test_split
 
 # Create dataset
 dataset = CustomImageDataset(root_dir)
-
-# Get label information
-label_info = dataset.get_label_info()
-print("Label Information:", label_info)
-
-# Get the number of images per label
-label_counts = dataset.count_images_per_label()
-print("Number of images per label:", label_counts)
 
 # Create data indices for training, validation, and test splits
 dataset_size = len(dataset)
@@ -102,6 +94,11 @@ test_label_counts = count_labels_in_loader(test_loader, dataset.class_to_idx)
 print("Training label distribution:", train_label_counts)
 print("Validation label distribution:", valid_label_counts)
 print("Test label distribution:", test_label_counts)
+
+
+train_label_counts = {k: f"{v:.4f}" for k, v in train_label_counts.items()}
+valid_label_counts = {k: f"{v:.4f}" for k, v in valid_label_counts.items()}
+test_label_counts = {k: f"{v:.4f}" for k, v in test_label_counts.items()}
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Training, Validation and Testing Functions
@@ -265,7 +262,7 @@ def visualise_misclassified(paths, true_labels, predicted_labels, max_images=5):
             ax.imshow(image)
             ax.set_title(f'True: {true_labels[i]} Pred: {predicted_labels[i]}')
             ax.axis('off')
-        plt.savefig('plots/misclassified_10.png')
+        plt.savefig('plots/misclassified_130624.png')
     else:
         print("No misclassified images to display.")
 
@@ -280,7 +277,7 @@ def get_top_n_subset(indices, top_n_predictions, top_n_probabilities):
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
-from modelcomplete import CustomResNet50, CustomClassifier
+from modelcomplete import *
 num_classes = args.num_classes
 hidden_features = args.hidden_features
 learning_rate = args.lr
@@ -300,8 +297,38 @@ model = model.to(device)
 
 print(device)
 
+# Define weights for weighted cross entropy loss
+# {'Figurines': 12847, 'Heads': 7713, 'Human Parts': 898, 'Jewelry': 7279, 'Reliefs': 2111, 
+# 'Seal Stones - Seals - Stamps': 3968, 'Statues': 1473, 'Tools': 724, 
+# 'Vases': 18926, 'Weapons': 1119}
+# TotalImages = 57058 
+# {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'}
+# {'Accessories': 787, 'Inscriptions': 787, 'Tools': 878}
+TotalImages = 57058 
+Fw = TotalImages/12847
+Hw = TotalImages/7713
+HPw = TotalImages/898
+Jw = TotalImages/7279
+Rw = TotalImages/2111
+SSw= TotalImages/3968
+Sw = TotalImages/1473
+Tw = TotalImages/724
+Vw = TotalImages/18926
+Ww =TotalImages/1119
+
+weights = torch.tensor([Fw, Hw, HPw, Jw, Rw, SSw, Sw, Tw, Vw, Ww])
+weights = weights.to(device)
+
+# TotalAccessoriesWeight = 2452/787
+# TotalInscriptionsWeight = 2452/787
+# TotalToolsWeight = 2452/878
+# TotalWeight = 787 + 787 + 878
+# weights = torch.tensor([TotalAccessoriesWeight, TotalInscriptionsWeight, TotalToolsWeight])
+# weights = weights.to(device)
+
+
 # Define the loss function and the optimizer
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=0.1)
 optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
@@ -426,7 +453,7 @@ with open(log_file, 'a') as log:
     plt.ylabel('Frequency')
     plt.title('Distribution of Correctly Classified Classes')
     plt.xticks(rotation=45)
-    plt.savefig('plots/DoC_10.png')
+    plt.savefig('plots/DoC_130624.png')
 
     # Plot confusion matrix
     plt.figure(figsize=(10, 8))
@@ -434,7 +461,7 @@ with open(log_file, 'a') as log:
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
     plt.title('Confusion Matrix')
-    plt.savefig('plots/cm_10.png')
+    plt.savefig('plots/cm_130624.png')
 
 
 #--------------------------------------------------------------------------------------------------------------------------

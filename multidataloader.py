@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 from torch.utils.data import Dataset
@@ -32,7 +31,8 @@ class CustomImageDataset(Dataset):
                         relative_path = os.path.relpath(full_path, self.root_dir)
                         label_dict[relative_path][self.class_to_idx[cls_name]] = 1  # Set the label for the class
         img_paths = list(label_dict.keys())
-        labels = list(label_dict.values())
+        #labels = list(label_dict.values())
+        labels = [tuple(label) for label in label_dict.values()]  # Convert numpy arrays to tuples
         return img_paths, labels
     
     def background_subtraction(self, image_path):
@@ -67,6 +67,8 @@ class CustomImageDataset(Dataset):
         img_path = self.img_paths[idx]
         try:
             image = Image.open(os.path.join(self.root_dir, img_path)).convert('RGB')
+            # Uncomment the line below to apply background subtraction
+            # image = self.background_subtraction(img_path)
         except (IOError, OSError) as e:
             print(f"Error loading image {img_path}: {e}")
             return None
@@ -97,11 +99,71 @@ class CustomImageDataset(Dataset):
                     label_counts[self.classes[idx]] += 1
         return label_counts
     
-    
-    
-# root_dir = "/rds/user/sms227/hpc-work/dissertation/data/Test3ClassDup"
-# dataset = CustomImageDataset(root_dir)
 
-# specific_path = "/rds/user/sms227/hpc-work/dissertation/data/Test3ClassDup/Accessories/Barakat 34, GF.346.JPG"
+# if __name__ == '__main__':
+
+#     rootdir = '/rds/user/sms227/hpc-work/dissertation/data/TD10A'
+#     dataset = CustomImageDataset(rootdir)
+#     img_paths, labels = dataset.get_image_paths_and_labels() 
+#     print(dataset.count_images_per_label())
+#     #print(dataset.classes)
+
+
+
+
+# from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler   
+
+# batch_size = 32 
+# root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
+# dataset = CustomImageDataset(root_dir)
+# test_split = 0.5
+# validation_split = 0.4
+# shuffle_dataset = True
+# random_seed = 42
+
+# # Create data indices for training, validation, and test splits
+# dataset_size = len(dataset)
+# indices = list(range(dataset_size))
+# test_split_idx = int(np.floor(test_split * dataset_size))
+# validation_split_idx = int(np.floor(validation_split * (dataset_size - test_split_idx)))
+
+# if shuffle_dataset:
+#     np.random.seed(random_seed)
+#     np.random.shuffle(indices)
+
+# test_indices = indices[:test_split_idx]
+# train_val_indices = indices[test_split_idx:]
+# train_indices = train_val_indices[validation_split_idx:]
+# val_indices = train_val_indices[:validation_split_idx]
+
+# # Create data samplers and loaders
+# train_sampler = SubsetRandomSampler(train_indices)
+
+# train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+
+# # def count_labels_in_loader(loader, class_to_idx):
+# #     # Initialize label_counts using the class indices directly
+# #     label_counts = {idx: 0 for idx in class_to_idx.values()}
+# #     for _, labels, _ in loader:
+# #         for label in labels.numpy():
+# #             if label in label_counts:
+# #                 label_counts[label] += 1
+# #     return label_counts
+
+# def count_labels_in_loader(loader, class_to_idx):
+#     # Initialize label_counts using the class indices directly
+#     label_counts = {idx: 0 for idx in class_to_idx.values()}
+#     for _, labels, _ in loader:
+#         for label in labels:
+#             if label in label_counts:
+#                 label_counts[label] += 1
+#     return label_counts
+
+
+# # Check label distribution in each loader
+# train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
+# print("Training label distribution:", train_label_counts)
+
+# specific_path = "/rds/user/sms227/hpc-work/dissertation/data/TD10A/Figurines/Ειδώλια Κλασσικά - Ετρουσκικά/Ειδώλια Γυναικεία Λίθινα/CAHN, BASEL, 05.11.2011, 212.2.png"
 # labels = dataset.get_label_for_path(specific_path)
 # print(f"Labels for {specific_path}: {labels}")
