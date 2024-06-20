@@ -7,7 +7,7 @@ import torch
 from collections import defaultdict
 import cv2
 
-class CustomImageDataset(Dataset):
+class CustomImageDataset2(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
         self.classes = sorted(cls for cls in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, cls)))

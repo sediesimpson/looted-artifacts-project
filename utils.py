@@ -72,3 +72,69 @@ def plot_saliency_maps(saliency_maps, output_dir="saliency_maps", alpha=0.5, cma
         plt.savefig(os.path.join(output_dir, f"saliency_map_overlay_{idx}.png"))
         plt.close()
 
+def extract_image_paths(loader, dataset):
+    paths_list = []
+    for indices in loader.sampler:
+        paths_list.append(dataset.img_paths[indices])
+    return paths_list
+
+def validate_image_paths(train_loader, valid_loader, test_loader, dataset):
+    train_paths = extract_image_paths(train_loader, dataset)
+    valid_paths = extract_image_paths(valid_loader, dataset)
+    test_paths = extract_image_paths(test_loader, dataset)
+
+    # Convert lists to sets for comparison
+    train_set = set(train_paths)
+    valid_set = set(valid_paths)
+    test_set = set(test_paths)
+
+    # Check for overlaps
+    train_val_overlap = train_set & valid_set
+    train_test_overlap = train_set & test_set
+    valid_test_overlap = valid_set & test_set
+
+    if train_val_overlap:
+        print("Overlap found between train and validation sets.")
+        print("Overlap paths:", train_val_overlap)
+    else:
+        print("No overlap between train and validation sets.")
+
+    if train_test_overlap:
+        print("Overlap found between train and test sets.")
+        print("Overlap paths:", train_test_overlap)
+    else:
+        print("No overlap between train and test sets.")
+
+    if valid_test_overlap:
+        print("Overlap found between validation and test sets.")
+        print("Overlap paths:", valid_test_overlap)
+    else:
+        print("No overlap between validation and test sets.")
+
+# #--------------------------------------------------------------------------------------------------------------------------
+# # Function to visualise misclassified images 
+# #--------------------------------------------------------------------------------------------------------------------------
+# def visualise_misclassified(paths, true_labels, predicted_labels, max_images=5):
+#     num_misclassified = len(paths)
+#     if num_misclassified > 0:
+#         fig, axes = plt.subplots(1, min(num_misclassified, max_images), figsize=(15, 3))
+#         #fig.suptitle('Misclassified Images')
+        
+#         for i, ax in enumerate(axes):
+#             if i >= num_misclassified:
+#                 break
+#             image = Image.open(paths[i])  # Open the original image
+#             ax.imshow(image)
+#             ax.set_title(f'True: {true_labels[i]} Pred: {predicted_labels[i]}')
+#             ax.axis('off')
+#         plt.savefig('plots/misclassified_120624.png')
+#     else:
+#         print("No misclassified images to display.")
+
+# #--------------------------------------------------------------------------------------------------------------------------
+# # Function to visualise top N predictions and probabilities
+# #--------------------------------------------------------------------------------------------------------------------------
+# def get_top_n_subset(indices, top_n_predictions, top_n_probabilities):
+#     subset_top_n_predictions = [top_n_predictions[i] for i in indices]
+#     subset_top_n_probabilities = [top_n_probabilities[i] for i in indices]
+#     return subset_top_n_predictions, subset_top_n_probabilities
