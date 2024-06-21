@@ -15,7 +15,7 @@ from scipy.spatial import distance
 from tqdm import tqdm
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from finaldataloader import CustomImageDataset
+from old.finaldataloader import CustomImageDataset
 #--------------------------------------------------------------------------------------------------------------------------
 # Check dataloader works correctly
 #--------------------------------------------------------------------------------------------------------------------------

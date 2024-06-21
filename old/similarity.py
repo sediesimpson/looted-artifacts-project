@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 import numpy as np
-from finaldataloader import CustomImageDataset
+from old.finaldataloader import CustomImageDataset
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import os

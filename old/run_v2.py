@@ -24,7 +24,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import resnet50, ResNet50_Weights
 from dataloader import AdjustLabels
-from modelcomplete import CustomResNet50, CustomClassifier, criterion, num_classes, hidden_features, learning_rate, num_epochs
+from old.modelcomplete import CustomResNet50, CustomClassifier, criterion, num_classes, hidden_features, learning_rate, num_epochs
 
 #--------------------------------------------------------------------------------------------------------------------------
 # Training, Validation and Testing Functions

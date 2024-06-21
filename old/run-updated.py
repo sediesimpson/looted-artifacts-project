@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import pandas as pd
-from finaldataloader import CustomImageDataset
+from old.finaldataloader import CustomImageDataset
 import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
-from gradcam import *
+from old.gradcam import *
 #--------------------------------------------------------------------------------------------------------------------------
 # Define argsparser
 #--------------------------------------------------------------------------------------------------------------------------
@@ -277,7 +277,7 @@ def get_top_n_subset(indices, top_n_predictions, top_n_probabilities):
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
-from modelcomplete import *
+from old.modelcomplete import *
 num_classes = args.num_classes
 hidden_features = args.hidden_features
 learning_rate = args.lr

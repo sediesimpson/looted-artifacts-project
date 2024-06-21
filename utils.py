@@ -12,12 +12,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import pandas as pd
-from finaldataloader import CustomImageDataset
+from old.finaldataloader import CustomImageDataset
 import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
-from finaldataloader import *
+from old.finaldataloader import *
 
 # def preprocess_image(image):
 #     preprocess = transforms.Compose([

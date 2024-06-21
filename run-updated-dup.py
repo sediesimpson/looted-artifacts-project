@@ -20,7 +20,7 @@ import argparse
 import torch.nn.functional as F
 from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
-from gradcam import *
+from old.gradcam import *
 import sys
 from utils import *
 #--------------------------------------------------------------------------------------------------------------------------

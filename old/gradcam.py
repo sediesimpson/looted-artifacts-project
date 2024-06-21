@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
 from PIL import Image
-from modelcomplete import *
+from old.modelcomplete import *
 from sklearn.metrics import confusion_matrix
 import cv2
 

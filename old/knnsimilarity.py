@@ -11,7 +11,7 @@ from torchvision import models, transforms
 from torchvision import transforms
 from torchvision.models import ResNet50_Weights
 
-from finaldataloader import *
+from old.finaldataloader import *
 
 from scipy.spatial.distance import cosine
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
