@@ -93,8 +93,8 @@ random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
-dataset = CustomImageDataset(root_dir)
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/la_data"
+dataset = CustomImageDataset2(root_dir)
 
 # Get label information
 label_info = dataset.get_label_info()
@@ -141,34 +141,32 @@ test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
 # print(f"Validation labels for {specific_path}: {val_labels}")
 # print(f"Test labels for {specific_path}: {test_labels}")
 
-def count_labels_in_loader(loader, class_to_idx):
-    # Initialize label_counts using the class indices directly
-    label_counts = {idx: 0 for idx in class_to_idx.values()}
-    for _, labels, _ in loader:
-        print(len(labels))
-        for idx, label in enumerate(labels):
-            print(label)
-            if label == 1:
-                label_counts[idx] += 1
-    return label_counts
+# def count_labels_in_loader(loader, class_to_idx):
+#     # Initialize label_counts using the class indices directly
+#     label_counts = {idx: 0 for idx in class_to_idx.values()}
+#     for _, labels, _ in loader:
+#         print(len(labels))
+#         for idx, label in enumerate(labels):
+#             print(label)
+#             if label == 1:
+#                 label_counts[idx] += 1
+#     return label_counts
 
 
-# Count labels in each DataLoader
-train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
-print(f"Label counts in train loader: {train_label_counts}")
-
-sys.exit(1)
+# # Count labels in each DataLoader
+# train_label_counts = count_labels_in_loader(train_loader, dataset.class_to_idx)
+# print(f"Label counts in train loader: {train_label_counts}")
 
 
-valid_label_counts = count_labels_in_loader(valid_loader, dataset.class_to_idx)
-print(f"Label counts in validation loader: {valid_label_counts}")
+# valid_label_counts = count_labels_in_loader(valid_loader, dataset.class_to_idx)
+# print(f"Label counts in validation loader: {valid_label_counts}")
 
-test_label_counts = count_labels_in_loader(test_loader, dataset.class_to_idx)
-print(f"Label counts in test loader: {test_label_counts}")
+# test_label_counts = count_labels_in_loader(test_loader, dataset.class_to_idx)
+# print(f"Label counts in test loader: {test_label_counts}")
 
-train_label_counts = {k: f"{v:.4f}" for k, v in train_label_counts.items()}
-valid_label_counts = {k: f"{v:.4f}" for k, v in valid_label_counts.items()}
-test_label_counts = {k: f"{v:.4f}" for k, v in test_label_counts.items()}
+# train_label_counts = {k: f"{v:.4f}" for k, v in train_label_counts.items()}
+# valid_label_counts = {k: f"{v:.4f}" for k, v in valid_label_counts.items()}
+# test_label_counts = {k: f"{v:.4f}" for k, v in test_label_counts.items()}
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
@@ -224,7 +222,7 @@ def multilabel_accuracy(true_labels, pred_labels):
 #------------------------------------------------------------------------------------------------------------------------
 # Model
 #------------------------------------------------------------------------------------------------------------------------
-num_classes = 10
+num_classes = 28
 hidden_features = 512
 model = CustomResNet50(num_classes=num_classes, hidden_features=hidden_features)
 
@@ -277,9 +275,9 @@ os.makedirs(log_dir, exist_ok=True)  # Create the directory if it doesn't exist
 log_file = os.path.join(log_dir, f"logs_{timestamp}.txt")
 
 with open(log_file, 'a') as log:
-    log.write(f"Training label distribution: {train_label_counts}\n")
-    log.write(f"Validation label distribution: {valid_label_counts}\n")
-    log.write(f"Test label distribution:  {test_label_counts}\n")
+    # log.write(f"Training label distribution: {train_label_counts}\n")
+    # log.write(f"Validation label distribution: {valid_label_counts}\n")
+    # log.write(f"Test label distribution:  {test_label_counts}\n")
     log.write(f"Batch Size:  {batch_size}\n")
     log.write(f"Validation Split:  {validation_split}\n")
     log.write(f"Test Split:  {test_split}\n")
@@ -301,7 +299,8 @@ confusion_matrices = multilabel_confusion_matrix(test_labels, test_predictions)
 
 # Calculate accuracy per label from confusion matrices
 # label_map = {0: 'Accessories', 1: 'Inscriptions', 2: 'Tools'} 
-label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
+#label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
+label_map = {0: 'Accessories', 1: 'Altars', 2: 'Candelabra', 3: 'Coins - Metals', 4: 'Columns - Capitals', 5: 'Decorative Tiles', 6: 'Egyptian Coffins', 7: 'Figurines', 8: 'Fossils', 9: 'Frescoes - Mosaics', 10: 'Heads', 11: 'Human Parts', 12: 'Inscriptions', 13: 'Islamic', 14: 'Jewelry', 15: 'Manuscripts', 16: 'Mirrors', 17: 'Musical Instruments', 18: 'Oscilla', 19: 'Other Objects', 20: 'Reliefs', 21: 'Sarcophagi - Urns', 22: 'Sardinian Boats', 23: 'Seal Stones - Seals - Stamps', 24: 'Statues', 25: 'Tools', 26: 'Vases', 27: 'Weapons'}
 accuracy_per_label = {}
 for i, cm in enumerate(confusion_matrices):
     label_name = label_map[i]
@@ -351,7 +350,7 @@ with open(log_file, 'a') as log:
 # label_map = {0: 'Figurines', 1: 'Heads', 2: 'Human Parts', 3: 'Jewelry', 4: 'Reliefs', 5: 'Seal Stones - Seals - Stamps', 6: 'Statues', 7: 'Tools', 8: 'Vases', 9: 'Weapons'}
 
 # Define the root directory of your dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"  # Replace with the actual root directory
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/la_data"  # Replace with the actual root directory
 
 
 # Function to format labels for display
@@ -388,7 +387,7 @@ for row, idx in enumerate(top_5_indices):
         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 plt.tight_layout()
-plt.savefig('knnplots/multicorrect_140624.png')
+plt.savefig('knnplots/multicorrect_240624.png')
 
 #------------------------------------------------------------------------------------------------------
 # # Top 5 most confidently incorrect predictions
@@ -438,7 +437,7 @@ for row, idx in enumerate(top_5_incorrect_indices):
         load_and_display_image(neighbor_path, axes[row, col + 1], f'Neighbor {col + 1}\nLabel: {neighbor_label}\nDist: {distance:.2f}')
 
 plt.tight_layout()
-plt.savefig('knnplots/multiincorrect_140624.png')
+plt.savefig('knnplots/multiincorrect_240624.png')
 
 
 

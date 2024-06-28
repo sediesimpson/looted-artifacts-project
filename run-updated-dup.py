@@ -33,12 +33,12 @@ parser.add_argument('--num_epochs', type=int, default=25)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
-parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/TD10A")
+parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/la_data")
 parser.add_argument('--validation_split', type=int, default=0.1)
 parser.add_argument('--test_split', type=int, default=0.1)
 parser.add_argument('--shuffle_dataset', type=bool, default=True)
 parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--num_classes', type=int, default=10)
+parser.add_argument('--num_classes', type=int, default=28)
 parser.add_argument('--hidden_features', type=int, default=512)
 args = parser.parse_args()
 
@@ -53,12 +53,13 @@ random_seed = args.random_seed
 test_split = args.test_split
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/la_data"
 dataset = CustomImageDataset2(root_dir)
 
 # Get label information
 label_info = dataset.get_label_info()
 print("Label Information:", label_info)
+
 
 # Get the number of images per label
 label_counts = dataset.count_images_per_label()
@@ -94,7 +95,12 @@ validate_image_paths(train_loader, valid_loader, test_loader, dataset)
 # Training, Validation and Testing Functions
 #--------------------------------------------------------------------------------------------------------------------------
 #class_names = ['Accessories', 'Inscriptions', 'Tools']
-class_names = ['Figurines', 'Heads', 'Human Parts', 'Jewelry', 'Reliefs', 'Seal Stones - Seals - Stamps', 'Statues', 'Tools', 'Vases', 'Weapons']
+#class_names = ['Figurines', 'Heads', 'Human Parts', 'Jewelry', 'Reliefs', 'Seal Stones - Seals - Stamps', 'Statues', 'Tools', 'Vases', 'Weapons']
+class_names = ['Accessories','Altars','Candelabra','Coins - Metals','Columns - Capitals',
+'Decorative Tiles','Egyptian Coffins','Figurines','Fossils','Frescoes - Mosaics'
+,'Heads','Human Parts','Inscriptions','Islamic','Jewelry','Manuscripts','Mirrors'
+,'Musical Instruments','Oscilla','Other Objects','Reliefs','Sarcophagi - Urns',
+'Sardinian Boats','Seal Stones - Seals - Stamps','Statues','Tools','Vases','Weapons']
 def train(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0

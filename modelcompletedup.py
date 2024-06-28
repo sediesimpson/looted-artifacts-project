@@ -14,14 +14,14 @@ class CustomClassifier(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.2)
         self.fc2 = nn.Linear(hidden_features, num_classes)
-        #self.sigmoid = nn.Sigmoid()  # For multi-label classification
+        self.sigmoid = nn.Sigmoid()  # For multi-label classification
 
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.dropout(x)
         x = self.fc2(x)
-        #x = self.sigmoid(x)  # Apply sigmoid activation
+        x = self.sigmoid(x)  # Apply sigmoid activation
         return x
 
 # Define a model wrapper that combines ResNet and CustomClassifier
