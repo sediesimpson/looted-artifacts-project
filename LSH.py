@@ -11,6 +11,7 @@ import sys
 from multidataloader import *
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -47,10 +48,34 @@ class CustomResNet50(nn.Module):
         return x
 
 #--------------------------------------------------------------------------------------------------------------------------
+# Split dataset 
+#--------------------------------------------------------------------------------------------------------------------------
+    
+# Function to ensure no data leakage
+def split_dataset(dataset, test_split=0.2, val_split=0, shuffle=True, random_seed=42):
+    # Identify unique images by their basename
+    unique_images = list(set(os.path.basename(path) for path in dataset.img_paths))
+    
+    # Split the dataset based on unique images
+    train_val_imgs, test_imgs = train_test_split(unique_images, test_size=test_split, random_state=random_seed)
+    train_imgs, val_imgs = train_test_split(train_val_imgs, test_size=val_split/(1-test_split), random_state=random_seed)
+    
+    train_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in train_imgs]
+    val_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in val_imgs]
+    test_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in test_imgs]
+    
+    return train_indices, val_indices, test_indices
+#--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
+batch_size = 32
+validation_split = 0.1
+shuffle_dataset = True
+random_seed = 42
+test_split = 0.1
+
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
 dataset = CustomImageDataset2(root_dir)
 
 # Get label information
@@ -61,7 +86,31 @@ print("Label Information:", label_info)
 label_counts = dataset.count_images_per_label()
 print("Number of images per label:", label_counts)
 
-train_loader = DataLoader(dataset, batch_size=1)
+# Split dataset without data leakage
+train_indices, val_indices, test_indices = split_dataset(dataset, test_split=0.2, val_split=0.1, shuffle=True, random_seed=42)
+    
+# Create data samplers and loaders
+train_sampler = SubsetRandomSampler(train_indices)
+test_sampler = SubsetRandomSampler(test_indices)
+
+train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
+#--------------------------------------------------------------------------------------------------------------------------
+# Define Parameters and check dataloaders
+#--------------------------------------------------------------------------------------------------------------------------
+# # Create dataset
+# root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
+# dataset = CustomImageDataset2(root_dir)
+
+# # Get label information
+# label_info = dataset.get_label_info()
+# print("Label Information:", label_info)
+
+# # Get the number of images per label
+# label_counts = dataset.count_images_per_label()
+# print("Number of images per label:", label_counts)
+
+# train_loader = DataLoader(dataset, batch_size=1)
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
@@ -147,10 +196,12 @@ model = model.to(device)
 # Extract features for training set 
 train_features, train_labels, train_img_paths = extract_features(train_loader, model, device)
 
+# Extract features for test set 
+test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
+
 #----------------------------------------------------------------------------------------------------------------------------
 # Hashing Function for LSH - Random Hashing Used
 #----------------------------------------------------------------------------------------------------------------------------
-
 def random_projection_hash(vector, num_hashes=10, dim=2048):  # Ensure `dim` matches feature vector size
     vector = np.array(vector)  # Ensure vector is a numpy array
     if vector.ndim == 1:
@@ -163,7 +214,6 @@ def random_projection_hash(vector, num_hashes=10, dim=2048):  # Ensure `dim` mat
 #     projections = np.random.randn(num_hashes, dim)
 #     hash_codes = (np.dot(vector, projections.T) > 0).astype(int)
 #     return hash_codes.flatten()
-
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Building the hash tables 
@@ -178,9 +228,6 @@ def build_hash_tables(hashes):
 #----------------------------------------------------------------------------------------------------------------------------
 # Hashing the query image 
 #----------------------------------------------------------------------------------------------------------------------------
-# def hamming_distance(hash1, hash2):
-#     return np.sum(hash1 != hash2)
-
 # Define the transformation
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -191,30 +238,6 @@ transform = transforms.Compose([
 def preprocess_image(image_path):
     image = Image.open(image_path).convert("RGB")
     return transform(image)
-
-
-def query_image(image_path, model, hash_tables, preprocessed_images, device, k=5):
-    query_img = preprocess_image(image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
-    query_features = extract_features_single(query_img, model, device)  # Ensure this returns (1, 2048) array
-    query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
-    
-    # Ensure query_hash is 2D
-    if query_hash.ndim == 1:
-        query_hash = query_hash.reshape(1, -1)
-    
-    # Flatten and convert each row of hash_codes to a string for hash table lookup
-    query_hash_strs = [''.join(map(str, row)) for row in query_hash]
-    
-    candidates = []
-    for query_hash_str in query_hash_strs:
-        candidates.extend(hash_tables.get(query_hash_str, []))
-    
-    if not candidates:
-        return []
-    
-    # Return top-k similar images based on some distance measure (e.g., Hamming distance)
-    # Return unique candidates for simplicity
-    return [preprocessed_images[i] for i in set(candidates)]
 
 # def query_image(image_path, model, hash_tables, preprocessed_images, device, k=5):
 #     query_img = preprocess_image(image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
@@ -235,84 +258,118 @@ def query_image(image_path, model, hash_tables, preprocessed_images, device, k=5
 #     if not candidates:
 #         return []
     
-#     # Calculate Hamming distance between the query hash and each candidate's hash
-#     distances = []
-#     for candidate_idx in set(candidates):
-#         candidate_hash = random_projection_hash(train_features[candidate_idx], num_hashes=10, dim=2048)
-#         dist = hamming_distance(query_hash, candidate_hash)
-#         distances.append((candidate_idx, dist))
-    
-#     # Sort candidates by Hamming distance and return the top-k
-#     distances.sort(key=lambda x: x[1])
-#     closest_candidates = [preprocessed_images[idx] for idx, _ in distances[:k]]
-    
-#     return closest_candidates
+#     # Return top-k similar images based on some distance measure (e.g., Hamming distance)
+#     # Return unique candidates for simplicity
+#     return [preprocessed_images[i] for i in set(candidates)]
 
+def query_images(query_image_paths, model, hash_tables, preprocessed_images, device, k=5):
+    all_query_hashes = []
+    root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
 
+    for image_path in query_image_paths:
+        image_path = os.path.join(root_dir, image_path)
+        print(image_path)
+        query_img = preprocess_image(image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
+        query_features = extract_features_single(query_img, model, device)
+        query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
+        
+        if query_hash.ndim == 1:
+            query_hash = query_hash.reshape(1, -1)
+        
+        query_hash_strs = [''.join(map(str, row)) for row in query_hash]
+        all_query_hashes.extend(query_hash_strs)
+    
+    candidates = []
+    for query_hash_str in all_query_hashes:
+        if query_hash_str in hash_tables:
+            print(f"Found candidates for hash {query_hash_str}: {hash_tables[query_hash_str]}")
+        candidates.extend(hash_tables.get(query_hash_str, []))
+    
+    if not candidates:
+        print("No candidates found.")
+        return []
+    
+    # Count the frequency of each candidate
+    candidate_counts = {}
+    for candidate in candidates:
+        if candidate in candidate_counts:
+            candidate_counts[candidate] += 1
+        else:
+            candidate_counts[candidate] = 1
+    
+    # Sort candidates by frequency and return the top-k
+    sorted_candidates = sorted(candidate_counts.items(), key=lambda item: item[1], reverse=True)
+    closest_candidates = [preprocessed_images[idx] for idx, _ in sorted_candidates[:k]]
+    
+    print("Closest Candidates:", closest_candidates)
+    return closest_candidates
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Example Implementation
 #----------------------------------------------------------------------------------------------------------------------------
-folder_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
+# folder_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
 
-query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
-query_image_path  = preprocess_image(query_image_path).unsqueeze(0).to(device)
-query_features = extract_features_single(query_image_path, model, device)
-query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
-print(query_features)
-print(query_hash)
+# query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
+# query_image_path  = preprocess_image(query_image_path).unsqueeze(0).to(device)
+# query_features = extract_features_single(query_image_path, model, device)
+# query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
+# print(query_features)
+# print(query_hash)
 
-# Ensure query_hash is 2D
-if query_hash.ndim == 1:
-    query_hash = query_hash.reshape(1, -1)
+# # Ensure query_hash is 2D
+# if query_hash.ndim == 1:
+#     query_hash = query_hash.reshape(1, -1)
 
-print(query_hash)
+# print(query_hash)
 
 # Flatten and convert each row of hash_codes to a string for hash table lookup
-query_hash_strs = [''.join(map(str, row)) for row in query_hash]
-print(query_hash_strs) 
+# query_hash_strs = [''.join(map(str, row)) for row in query_hash]
+# print(query_hash_strs) 
 
 hashes = [random_projection_hash(f, num_hashes=10, dim=2048) for f in train_features]  
 hash_tables = build_hash_tables(hashes)
 print(hash_tables)
 
     
-candidates = []
-for query_hash_str in query_hash_strs:
-    candidates.extend(hash_tables.get(query_hash_str, []))
-    print(candidates)
-sys.exit()
+# candidates = []
+# for query_hash_str in query_hash_strs:
+#     candidates.extend(hash_tables.get(query_hash_str, []))
+#     print(candidates)
+# sys.exit()
 
 
 
 
 
 
-hashes = [random_projection_hash(f, num_hashes=10, dim=2048) for f in train_features]  
-hash_tables = build_hash_tables(hashes)
+# hashes = [random_projection_hash(f, num_hashes=10, dim=2048) for f in train_features]  
+# hash_tables = build_hash_tables(hashes)
 
-# Define the transformation
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+# # Define the transformation
+# transform = transforms.Compose([
+#     transforms.Resize((224, 224)),
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+# ])
 
-def preprocess_image(image_path):
-    image = Image.open(image_path).convert("RGB")
-    return transform(image)
+# def preprocess_image(image_path):
+#     image = Image.open(image_path).convert("RGB")
+#     return transform(image)
 
 
-# Query an image
-# query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
-# query_img = preprocess_image(query_image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
-# similar_images = query_image(query_img, model, hash_tables, train_img_paths)
-# print(similar_images)
+# # Query an image
+# # query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
+# # query_img = preprocess_image(query_image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
+# # similar_images = query_image(query_img, model, hash_tables, train_img_paths)
+# # print(similar_images)
 
-# Query an image
-#query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
-query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
-similar_images = query_image(query_image_path, model, hash_tables, train_img_paths, device)
+# # Query an image
+# #query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
+# query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
+
+# Query multiple images with debugging information
+similar_images = query_images(test_img_paths, model, hash_tables, train_img_paths, device)
+
 if similar_images:
     print("Similar Images:", similar_images)
 else:
