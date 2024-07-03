@@ -12,6 +12,14 @@ from multidataloader import *
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
+from pandas import DataFrame
+from sklearn.metrics.pairwise import pairwise_distances
+from itertools import combinations
+from copy import copy
+import matplotlib.pyplot as plt
+from PIL import Image
+from tqdm import tqdm
+
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -50,32 +58,30 @@ class CustomResNet50(nn.Module):
 #--------------------------------------------------------------------------------------------------------------------------
 # Split dataset 
 #--------------------------------------------------------------------------------------------------------------------------
-    
 # Function to ensure no data leakage
-def split_dataset(dataset, test_split=0.2, val_split=0, shuffle=True, random_seed=42):
+def split_dataset(dataset, test_split=0.2, shuffle=True, random_seed=42):
     # Identify unique images by their basename
     unique_images = list(set(os.path.basename(path) for path in dataset.img_paths))
     
     # Split the dataset based on unique images
-    train_val_imgs, test_imgs = train_test_split(unique_images, test_size=test_split, random_state=random_seed)
-    train_imgs, val_imgs = train_test_split(train_val_imgs, test_size=val_split/(1-test_split), random_state=random_seed)
+    train_imgs, test_imgs = train_test_split(unique_images, test_size=test_split, random_state=random_seed)
     
     train_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in train_imgs]
-    val_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in val_imgs]
     test_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in test_imgs]
     
-    return train_indices, val_indices, test_indices
+    return train_indices, test_indices
+
 #--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
-batch_size = 32
+batch_size = 1
 validation_split = 0.1
 shuffle_dataset = True
 random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
 dataset = CustomImageDataset2(root_dir)
 
 # Get label information
@@ -87,7 +93,7 @@ label_counts = dataset.count_images_per_label()
 print("Number of images per label:", label_counts)
 
 # Split dataset without data leakage
-train_indices, val_indices, test_indices = split_dataset(dataset, test_split=0.2, val_split=0.1, shuffle=True, random_seed=42)
+train_indices, test_indices = split_dataset(dataset, test_split=0.2, shuffle=True, random_seed=42)
     
 # Create data samplers and loaders
 train_sampler = SubsetRandomSampler(train_indices)
@@ -95,22 +101,6 @@ test_sampler = SubsetRandomSampler(test_indices)
 
 train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
 test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
-#--------------------------------------------------------------------------------------------------------------------------
-# Define Parameters and check dataloaders
-#--------------------------------------------------------------------------------------------------------------------------
-# # Create dataset
-# root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
-# dataset = CustomImageDataset2(root_dir)
-
-# # Get label information
-# label_info = dataset.get_label_info()
-# print("Label Information:", label_info)
-
-# # Get the number of images per label
-# label_counts = dataset.count_images_per_label()
-# print("Number of images per label:", label_counts)
-
-# train_loader = DataLoader(dataset, batch_size=1)
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
@@ -182,11 +172,9 @@ def extract_features_single(image, model, device):
         features = torch.flatten(features, 1)
     return features.cpu().numpy()
 
-
 #----------------------------------------------------------------------------------------------------------------------------
 # Feature Extraction 
 #----------------------------------------------------------------------------------------------------------------------------
-#num_classes = 28
 hidden_features = 512
 model = CustomResNet50(hidden_features=hidden_features)
 
@@ -198,32 +186,6 @@ train_features, train_labels, train_img_paths = extract_features(train_loader, m
 
 # Extract features for test set 
 test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
-
-#----------------------------------------------------------------------------------------------------------------------------
-# Hashing Function for LSH - Random Hashing Used
-#----------------------------------------------------------------------------------------------------------------------------
-def random_projection_hash(vector, num_hashes=10, dim=2048):  # Ensure `dim` matches feature vector size
-    vector = np.array(vector)  # Ensure vector is a numpy array
-    if vector.ndim == 1:
-        vector = vector.reshape(1, -1)  # Reshape to (1, dim) if vector is 1D
-    projections = np.random.randn(num_hashes, dim)
-    hash_codes = (np.dot(vector, projections.T) > 0).astype(int).flatten()
-    return hash_codes
-
-# def random_projection_hash(vector, num_hashes=10, dim=2048):
-#     projections = np.random.randn(num_hashes, dim)
-#     hash_codes = (np.dot(vector, projections.T) > 0).astype(int)
-#     return hash_codes.flatten()
-
-#----------------------------------------------------------------------------------------------------------------------------
-# Building the hash tables 
-#----------------------------------------------------------------------------------------------------------------------------
-def build_hash_tables(hashes):
-    hash_tables = defaultdict(list)
-    for idx, hash_code in enumerate(hashes):
-        hash_code_str = ''.join(map(str, hash_code))
-        hash_tables[hash_code_str].append(idx)
-    return hash_tables
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Hashing the query image 
@@ -239,138 +201,143 @@ def preprocess_image(image_path):
     image = Image.open(image_path).convert("RGB")
     return transform(image)
 
-# def query_image(image_path, model, hash_tables, preprocessed_images, device, k=5):
-#     query_img = preprocess_image(image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
-#     query_features = extract_features_single(query_img, model, device)  # Ensure this returns (1, 2048) array
-#     query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
-    
-#     # Ensure query_hash is 2D
-#     if query_hash.ndim == 1:
-#         query_hash = query_hash.reshape(1, -1)
-    
-#     # Flatten and convert each row of hash_codes to a string for hash table lookup
-#     query_hash_strs = [''.join(map(str, row)) for row in query_hash]
-    
-#     candidates = []
-#     for query_hash_str in query_hash_strs:
-#         candidates.extend(hash_tables.get(query_hash_str, []))
-    
-#     if not candidates:
-#         return []
-    
-#     # Return top-k similar images based on some distance measure (e.g., Hamming distance)
-#     # Return unique candidates for simplicity
-#     return [preprocessed_images[i] for i in set(candidates)]
+class LSH:
+    def __init__(self, data):
+        self.data = data
+        self.model = None
 
-def query_images(query_image_paths, model, hash_tables, preprocessed_images, device, k=5):
-    all_query_hashes = []
-    root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
+    def __generate_random_vectors(self, num_vector, dim):
+        return np.random.randn(dim, num_vector)
 
-    for image_path in query_image_paths:
-        image_path = os.path.join(root_dir, image_path)
-        print(image_path)
-        query_img = preprocess_image(image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
-        query_features = extract_features_single(query_img, model, device)
-        query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
+    def train(self, num_vector, seed=None):
+        dim = self.data.shape[1]
+        if seed is not None:
+            np.random.seed(seed)
+
+        random_vectors = self.__generate_random_vectors(num_vector, dim)
+        powers_of_two = 1 << np.arange(num_vector - 1, -1, -1)
+
+        table = {}
+
+        # Partition data points into bins
+        bin_index_bits = (self.data.dot(random_vectors) >= 0)
+
+        # Encode bin index bits into integers
+        bin_indices = bin_index_bits.dot(powers_of_two)
+
+        # Update `table` so that `table[i]` is the list of document ids with bin index equal to i.
+        for data_index, bin_index in enumerate(bin_indices):
+            if bin_index not in table:
+                table[bin_index] = []
+            table[bin_index].append(data_index)
+
+        self.model = {'bin_indices': bin_indices, 'table': table, 'random_vectors': random_vectors, 'num_vector': num_vector}
+        return self
+
+    def __search_nearby_bins(self, query_bin_bits, table, search_radius=2, initial_candidates=set()):
+        num_vector = self.model['num_vector']
+        powers_of_two = 1 << np.arange(num_vector - 1, -1, -1)
+
+        candidate_set = copy(initial_candidates)
+
+        for different_bits in combinations(range(num_vector), search_radius):
+            alternate_bits = copy(query_bin_bits)
+            for i in different_bits:
+                alternate_bits[i] = 1 if alternate_bits[i] == 0 else 0
+
+            nearby_bin = alternate_bits.dot(powers_of_two)
+
+            if nearby_bin in table:
+                candidate_set.update(table[nearby_bin])
+
+        return candidate_set
+
+    def query(self, query_vec, k, max_search_radius, initial_candidates=set()):
+        if not self.model:
+            raise ValueError('Model not yet built. Exiting!')
+
+        data = self.data
+        table = self.model['table']
+        random_vectors = self.model['random_vectors']
+
+        bin_index_bits = (query_vec.dot(random_vectors) >= 0).flatten()
+
+        candidate_set = set()
+        for search_radius in range(max_search_radius + 1):
+            candidate_set = self.__search_nearby_bins(bin_index_bits, table, search_radius, initial_candidates=initial_candidates)
+
+        nearest_neighbors = DataFrame({'id': list(candidate_set)})
+        candidates = data[np.array(list(candidate_set)), :]
         
-        if query_hash.ndim == 1:
-            query_hash = query_hash.reshape(1, -1)
+        # Reshape query_vec to be a 2D array
+        query_vec = query_vec.reshape(1, -1)
         
-        query_hash_strs = [''.join(map(str, row)) for row in query_hash]
-        all_query_hashes.extend(query_hash_strs)
+        nearest_neighbors['distance'] = pairwise_distances(candidates, query_vec, metric='cosine').flatten()
+
+        return nearest_neighbors.nsmallest(k, 'distance')
     
-    candidates = []
-    for query_hash_str in all_query_hashes:
-        if query_hash_str in hash_tables:
-            print(f"Found candidates for hash {query_hash_str}: {hash_tables[query_hash_str]}")
-        candidates.extend(hash_tables.get(query_hash_str, []))
+# Function to show and save images
+def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
+    fig, axes = plt.subplots(1, len(neighbor_image_paths) + 1, figsize=(20, 5))
+    fig.suptitle('Query Image and Nearest Neighbors', fontsize=16)
+
+    # Display query image
+    query_img = Image.open(query_image_path)
+    axes[0].imshow(query_img)
+    axes[0].set_title('Query Image')
+    axes[0].axis('off')
+
+    # Display nearest neighbor images
+    for i, neighbor_image_path in enumerate(neighbor_image_paths):
+        neighbor_img = Image.open(neighbor_image_path)
+        axes[i + 1].imshow(neighbor_img)
+        axes[i + 1].set_title(f'Neighbor {i+1}')
+        axes[i + 1].axis('off')
+
+    # Save the plot
+    plt.savefig(save_path)
+    plt.close(fig)
     
-    if not candidates:
-        print("No candidates found.")
-        return []
+# Initialize LSH with extracted features
+lsh = LSH(train_features)
+lsh.train(num_vector=10, seed=42)  # Adjust num_vector based on your requirements
+
+# Define the root directory where images are stored
+save_dir = "plots/"
+
+# Ensure the save directory exists
+os.makedirs(save_dir, exist_ok=True)
+
+# Iterate through each data point in the test set
+for query_index in range(len(test_features)):
+    print(query_index)
+
+    query_vec = test_features[query_index]  # Use the query vector from the data
+
+    # Find the k-nearest neighbors
+    k = 5
+    max_search_radius = 2
+    nearest_neighbors = lsh.query(query_vec, k, max_search_radius)
     
-    # Count the frequency of each candidate
-    candidate_counts = {}
-    for candidate in candidates:
-        if candidate in candidate_counts:
-            candidate_counts[candidate] += 1
-        else:
-            candidate_counts[candidate] = 1
-    
-    # Sort candidates by frequency and return the top-k
-    sorted_candidates = sorted(candidate_counts.items(), key=lambda item: item[1], reverse=True)
-    closest_candidates = [preprocessed_images[idx] for idx, _ in sorted_candidates[:k]]
-    
-    print("Closest Candidates:", closest_candidates)
-    return closest_candidates
 
-#----------------------------------------------------------------------------------------------------------------------------
-# Example Implementation
-#----------------------------------------------------------------------------------------------------------------------------
-# folder_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
-
-# query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
-# query_image_path  = preprocess_image(query_image_path).unsqueeze(0).to(device)
-# query_features = extract_features_single(query_image_path, model, device)
-# query_hash = random_projection_hash(query_features, num_hashes=10, dim=2048)
-# print(query_features)
-# print(query_hash)
-
-# # Ensure query_hash is 2D
-# if query_hash.ndim == 1:
-#     query_hash = query_hash.reshape(1, -1)
-
-# print(query_hash)
-
-# Flatten and convert each row of hash_codes to a string for hash table lookup
-# query_hash_strs = [''.join(map(str, row)) for row in query_hash]
-# print(query_hash_strs) 
-
-hashes = [random_projection_hash(f, num_hashes=10, dim=2048) for f in train_features]  
-hash_tables = build_hash_tables(hashes)
-print(hash_tables)
-
-    
-# candidates = []
-# for query_hash_str in query_hash_strs:
-#     candidates.extend(hash_tables.get(query_hash_str, []))
-#     print(candidates)
-# sys.exit()
+    # Ensure the indices are integers
+    neighbor_indices = nearest_neighbors['id'].astype(int).tolist()
 
 
+    # Get the image paths of the query and its nearest neighbors
+    query_image_path = os.path.join(root_dir, test_img_paths[query_index])
+    neighbor_image_paths = [os.path.join(root_dir, train_img_paths[idx]) for idx in neighbor_indices]
+
+    # Print the paths
+    print(f"Query Image: {query_image_path}")
+    print("Nearest Neighbors:")
+    for path in neighbor_image_paths:
+        print(path)
+    print("\n")
+
+    # Define the save path for the plot
+    save_path = os.path.join(save_dir, f'query_{query_index}_neighbors.png')
 
 
-
-
-# hashes = [random_projection_hash(f, num_hashes=10, dim=2048) for f in train_features]  
-# hash_tables = build_hash_tables(hashes)
-
-# # Define the transformation
-# transform = transforms.Compose([
-#     transforms.Resize((224, 224)),
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-# ])
-
-# def preprocess_image(image_path):
-#     image = Image.open(image_path).convert("RGB")
-#     return transform(image)
-
-
-# # Query an image
-# # query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
-# # query_img = preprocess_image(query_image_path).unsqueeze(0).to(device)  # Add batch dimension and move to device
-# # similar_images = query_image(query_img, model, hash_tables, train_img_paths)
-# # print(similar_images)
-
-# # Query an image
-# #query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q/Accessories - Query /Berge, Paris, 1-12-2011, Lot 272.jpg"
-# query_image_path = "/rds/user/sms227/hpc-work/dissertation/data/la_data/Accessories/Berge, Paris, 10-10-2017, Lot 221.jpg"
-
-# Query multiple images with debugging information
-similar_images = query_images(test_img_paths, model, hash_tables, train_img_paths, device)
-
-if similar_images:
-    print("Similar Images:", similar_images)
-else:
-    print("No similar images found.")
+    # Visualize and save the query image and its nearest neighbors
+    show_images_and_save(query_image_path, neighbor_image_paths, save_path)
