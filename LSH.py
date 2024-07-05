@@ -19,7 +19,7 @@ from copy import copy
 import matplotlib.pyplot as plt
 from PIL import Image
 from tqdm import tqdm
-
+import time
 #------------------------------------------------------------------------------------------------------------------------
 # Define the CustomClassifier module
 #------------------------------------------------------------------------------------------------------------------------
@@ -266,9 +266,17 @@ class LSH:
         for search_radius in range(max_search_radius + 1):
             candidate_set = self.__search_nearby_bins(bin_index_bits, table, search_radius, initial_candidates=initial_candidates)
 
-        nearest_neighbors = DataFrame({'id': list(candidate_set)})
-        candidates = data[np.array(list(candidate_set)), :]
+        # Ensure the indices are integers before using them
+        candidate_set = set(map(int, candidate_set))
+
+        # Handle the case where no candidates are found
+        if not candidate_set:
+            return DataFrame({'id': [], 'distance': []})
+
+        candidates = data[np.array(list(candidate_set), dtype=int), :]
         
+        nearest_neighbors = DataFrame({'id': list(candidate_set)})
+        # candidates = data[np.array(list(candidate_set)), :]
         # Reshape query_vec to be a 2D array
         query_vec = query_vec.reshape(1, -1)
         
@@ -279,6 +287,10 @@ class LSH:
 # Function to show and save images
 def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
     fig, axes = plt.subplots(1, len(neighbor_image_paths) + 1, figsize=(20, 5))
+    if len(neighbor_image_paths) + 1 == 1:
+        axes = [axes] 
+    
+    # fig, axes = plt.subplots(1, len(neighbor_image_paths) + 1, figsize=(20, 5))
     fig.suptitle('Query Image and Nearest Neighbors', fontsize=16)
 
     # Display query image
@@ -298,31 +310,51 @@ def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
     plt.savefig(save_path)
     plt.close(fig)
     
+#----------------------------------------------------------------------------------------------------------------------------
+# Implementation
+#----------------------------------------------------------------------------------------------------------------------------
 # Initialize LSH with extracted features
 lsh = LSH(train_features)
-lsh.train(num_vector=10, seed=42)  # Adjust num_vector based on your requirements
+lsh.train(num_vector=1000, seed=42)  # Adjust num_vector based on your requirements
 
 # Define the root directory where images are stored
-save_dir = "plots/"
+save_dir = "lshplotscorrected/"
 
 # Ensure the save directory exists
 os.makedirs(save_dir, exist_ok=True)
 
+
 # Iterate through each data point in the test set
 for query_index in range(len(test_features)):
-    print(query_index)
 
     query_vec = test_features[query_index]  # Use the query vector from the data
+
+    # Measure the query time
+    start_time = time.time()
 
     # Find the k-nearest neighbors
     k = 5
     max_search_radius = 2
     nearest_neighbors = lsh.query(query_vec, k, max_search_radius)
     
-
     # Ensure the indices are integers
     neighbor_indices = nearest_neighbors['id'].astype(int).tolist()
 
+    # Find the k-nearest neighbors
+    max_search_radius = 2
+    all_neighbors = lsh.query(query_vec, len(train_features), max_search_radius)
+
+    # # Select the top 5 most confident predictions (smallest distances)
+    # top_k = 2
+    # top_neighbors = all_neighbors.nsmallest(top_k, 'distance')
+
+    # # Ensure the indices are integers
+    # neighbor_indices = top_neighbors['id'].astype(int).tolist()
+    # distances = top_neighbors['distance'].tolist()
+
+    # End time for the query
+    end_time = time.time()
+    query_time = end_time - start_time
 
     # Get the image paths of the query and its nearest neighbors
     query_image_path = os.path.join(root_dir, test_img_paths[query_index])
@@ -335,9 +367,18 @@ for query_index in range(len(test_features)):
         print(path)
     print("\n")
 
+    #     # Print the paths and distances
+    # print(f"Query Image: {query_image_path}")
+    # print("Nearest Neighbors and Distances:")
+    # for path, distance in zip(neighbor_image_paths, distances):
+    #     print(f"{path} - Distance: {distance}")
+    # print("\n")
+
+
     # Define the save path for the plot
     save_path = os.path.join(save_dir, f'query_{query_index}_neighbors.png')
 
 
     # Visualize and save the query image and its nearest neighbors
     show_images_and_save(query_image_path, neighbor_image_paths, save_path)
+
