@@ -82,7 +82,7 @@ random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD10A"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/la_data"
 dataset = CustomImageDataset2(root_dir)
 
 # Get label information
@@ -95,7 +95,7 @@ print("Number of images per label:", label_counts)
 
 # Split dataset without data leakage
 train_indices, test_indices = split_dataset(dataset, test_split=0.2, shuffle=True, random_seed=42)
-    
+
 # Create data samplers and loaders
 train_sampler = SubsetRandomSampler(train_indices)
 test_sampler = SubsetRandomSampler(test_indices)
@@ -226,7 +226,7 @@ class LSH:
         # Encode bin index bits into integers
         bin_indices = bin_index_bits.dot(powers_of_two)
 
-        # Update `table` so that `table[i]` is the list of document ids with bin index equal to i.
+        # Update `table` so that `table[i]` is the list of image ids with bin index equal to i.
         for data_index, bin_index in enumerate(bin_indices):
             if bin_index not in table:
                 table[bin_index] = []
@@ -276,7 +276,6 @@ class LSH:
 
         candidates = data[np.array(list(candidate_set), dtype=int), :]
         
-
         nearest_neighbors = DataFrame({'id': list(candidate_set)})
         #candidates = data[np.array(list(candidate_set)), :]
         
@@ -318,10 +317,11 @@ dataset_sizes = []
 query_times = []
 
 # Define different sizes of the test dataset to test
-subset_sizes = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, len(test_features)]
+test_features_length = len(test_features)
+subset_sizes = np.linspace(1000, test_features_length, 10, dtype=int)
 
 # Number of queries to average for each subset size
-num_queries = 10
+num_queries = 100
 
 # Train LSH on the full training dataset
 lsh = LSH(train_features)
@@ -370,5 +370,5 @@ for subset_size in subset_sizes:
     print(f"Subset Size: {subset_size}, Average Query Time: {average_query_time}")
 
 # Optionally, you can save the dataset_sizes and query_times for further analysis
-np.save(os.path.join(save_dir, "dataset_sizes.npy"), np.array(dataset_sizes))
-np.save(os.path.join(save_dir, "query_times.npy"), np.array(query_times))
+np.save(os.path.join(save_dir, "dataset_sizes_full.npy"), np.array(dataset_sizes))
+np.save(os.path.join(save_dir, "query_times_full.npy"), np.array(query_times))
