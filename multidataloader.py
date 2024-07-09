@@ -68,7 +68,7 @@ class CustomImageDataset2(Dataset):
         try:
             image = Image.open(os.path.join(self.root_dir, img_path)).convert('RGB')
             # Uncomment the line below to apply background subtraction
-            # image = self.background_subtraction(img_path)
+            # image = self.background_subtraction(image)
         except (IOError, OSError) as e:
             print(f"Error loading image {img_path}: {e}")
             return None
