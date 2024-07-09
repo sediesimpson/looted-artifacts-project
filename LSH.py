@@ -81,7 +81,7 @@ random_seed = 42
 test_split = 0.1
 
 # Create dataset
-root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4Q"
+root_dir = "/rds/user/sms227/hpc-work/dissertation/data/TD4A"
 dataset = CustomImageDataset2(root_dir)
 
 # Get label information
@@ -315,7 +315,7 @@ def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
 #----------------------------------------------------------------------------------------------------------------------------
 # Initialize LSH with extracted features
 lsh = LSH(train_features)
-lsh.train(num_vector=1000, seed=42)  # Adjust num_vector based on your requirements
+lsh.train(num_vector=10, seed=42)  # Adjust num_vector based on your requirements
 
 # Define the root directory where images are stored
 save_dir = "lshplotscorrected/"
@@ -323,6 +323,9 @@ save_dir = "lshplotscorrected/"
 # Ensure the save directory exists
 os.makedirs(save_dir, exist_ok=True)
 
+# Define the top_k number of queries to process
+top_k_queries = 2  
+selected_query_indices = range(top_k_queries)
 
 # Iterate through each data point in the test set
 for query_index in range(len(test_features)):
@@ -333,24 +336,25 @@ for query_index in range(len(test_features)):
     start_time = time.time()
 
     # Find the k-nearest neighbors
-    k = 5
-    max_search_radius = 2
-    nearest_neighbors = lsh.query(query_vec, k, max_search_radius)
+    # k = 5
+    # max_search_radius = 2
+    # nearest_neighbors = lsh.query(query_vec, k, max_search_radius)
     
-    # Ensure the indices are integers
-    neighbor_indices = nearest_neighbors['id'].astype(int).tolist()
+    # # Ensure the indices are integers
+    # neighbor_indices = nearest_neighbors['id'].astype(int).tolist()
 
     # Find the k-nearest neighbors
     max_search_radius = 2
     all_neighbors = lsh.query(query_vec, len(train_features), max_search_radius)
 
-    # # Select the top 5 most confident predictions (smallest distances)
-    # top_k = 2
-    # top_neighbors = all_neighbors.nsmallest(top_k, 'distance')
+    # Select the top 5 most confident predictions (smallest distances)
+    top_k = 2
+    top_neighbors = all_neighbors.nsmallest(top_k, 'distance')
+    print(top_neighbors)
 
-    # # Ensure the indices are integers
-    # neighbor_indices = top_neighbors['id'].astype(int).tolist()
-    # distances = top_neighbors['distance'].tolist()
+    # Ensure the indices are integers
+    neighbor_indices = top_neighbors['id'].astype(int).tolist()
+    distances = top_neighbors['distance'].tolist()
 
     # End time for the query
     end_time = time.time()
@@ -376,9 +380,9 @@ for query_index in range(len(test_features)):
 
 
     # Define the save path for the plot
-    save_path = os.path.join(save_dir, f'query_{query_index}_neighbors.png')
+    #save_path = os.path.join(save_dir, f'query_{query_index}_neighbors.png')
 
 
     # Visualize and save the query image and its nearest neighbors
-    show_images_and_save(query_image_path, neighbor_image_paths, save_path)
+    #show_images_and_save(query_image_path, neighbor_image_paths, save_path)
 
