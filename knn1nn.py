@@ -241,3 +241,23 @@ print(f'Precision: {precision:.2f}')
 print(f'Recall: {recall:.2f}')
 print(f'F1 Score: {f1_score:.2f}')
 
+
+# Calculate memory usage
+data_memory = sys.getsizeof(train_features)
+model_memory = sys.getsizeof(nbrs)
+indices_memory = sys.getsizeof(nbrs._fit_X)  # Memory used by the training data in the model
+distances_memory = sys.getsizeof(nbrs._tree)  # Memory used by the tree if applicable
+
+total_memory = data_memory + model_memory + indices_memory + distances_memory
+
+print(f'Data memory usage: {data_memory} bytes')
+print(f'Model memory usage: {model_memory} bytes')
+print(f'Indices memory usage: {indices_memory} bytes')
+print(f'Distances memory usage: {distances_memory} bytes')
+print(f'Total memory usage: {total_memory} bytes')
+
+# Calculating the number of comparisons done
+N = len(train_features)
+Q = len(test_features)
+# Total comparisons for brute force
+total_comparisons = N * Q
