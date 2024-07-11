@@ -21,3 +21,11 @@ knn_models/
 knn_models*
 knn_classifier.pkl
 knn_classifier*
+exactmatch*
+exactmatch/
+lshplots/
+lshplots*
+datasetsizes/
+datasetsizes*
+lshcifar
+lshcifar*

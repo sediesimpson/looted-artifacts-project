@@ -233,6 +233,8 @@ model = model.to(device)
 train_features, train_labels, train_img_paths = extract_features(train_loader, model, device)
 val_features, val_labels, val_img_paths = extract_features(valid_loader, model, device)
 
+# Measure the preprocessing time
+start_time = time.time()
 # Train the KNeighborsClassifier
 knn_classifier = KNeighborsClassifier(n_neighbors=5, metric='cosine')
 knn_classifier.fit(train_features, train_labels)
@@ -246,6 +248,10 @@ val_predictions = (val_predictions >= 0.5).astype(int)  # Adjust threshold if ne
 # Calculate and print validation accuracy
 val_accuracy = multilabel_accuracy(val_labels, val_predictions)
 print(f"Validation Accuracy: {val_accuracy:.4f}")
+end_time  = time.time()
+preprocess_time = end_time-start_time
+print(preprocess_time)
+sys.exit()
 
 # Extract features for the test set
 test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
