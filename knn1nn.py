@@ -285,12 +285,30 @@ nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=1.0).fit(trai
 query_index = 0  # Change this to select a different query image
 distances, indices = nbrs.radius_neighbors([test_features[query_index]], sort_results=True)
 filtered_indices = [index for dist, index in zip(distances[0], indices[0]) if dist < best_threshold]
-        
+filtered_distances = [dist for dist, index in zip(distances[0], indices[0]) if dist < best_threshold]
+print('=========== FILTERED INDICES ============')
+print(filtered_indices)
+print()
+print('=========== FILTERED DISTANCES ============')
+print(filtered_distances)
+print()
+print('=========== TEST IMAGE PATH ============')
+print(test_img_paths[query_index])
+print()
+print('=========== NEIGHBOUR IMAGE PATHS ============')
+for i in len(filtered_indices):
+    print(filtered_indices[i])
+    #print(train_img_paths[filtered_indices[i]])
+sys.exit()
+
+
+
+
 test_image_path = test_img_paths[query_index]
 query_label = test_labels[query_index]
-neighbors = indices[0]
+neighbors = filtered_indices[0]
 distances_to_neighbors = distances[0]
-print(distances_to_neighbors)
+#print(distances_to_neighbors)
 print(f'Neighbours:{neighbors}')
 print('=========== TEST IMAGE PATH ============')
 print(test_image_path)
