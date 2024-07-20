@@ -108,12 +108,15 @@ class CustomResNet50(nn.Module):
 #------------------------------------------------------------------------------------------------------------------------
 # Function to ensure no data leakage
 def split_dataset(dataset, test_split=0.2, val_split=0.1, shuffle=True, random_seed=42):
+    # Set the random seed for reproducibility
+    np.random.seed(random_seed)
+
     # Identify unique images by their basename
     unique_images = list(set(os.path.basename(path) for path in dataset.img_paths))
     
     # Split the dataset based on unique images
-    train_val_imgs, test_imgs = train_test_split(unique_images, test_size=test_split, random_state=random_seed)
-    train_imgs, val_imgs = train_test_split(train_val_imgs, test_size=val_split/(1-test_split), random_state=random_seed)
+    train_val_imgs, test_imgs = train_test_split(unique_images, test_size=test_split, random_state=random_seed, shuffle=shuffle)
+    train_imgs, val_imgs = train_test_split(train_val_imgs, test_size=val_split/(1-test_split), random_state=random_seed, shuffle=shuffle)
     
     train_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in train_imgs]
     val_indices = [i for i, path in enumerate(dataset.img_paths) if os.path.basename(path) in val_imgs]
@@ -202,63 +205,141 @@ train_features, train_labels, train_img_paths = extract_features(train_loader, m
 val_features, val_labels, val_img_paths = extract_features(val_loader, model, device)
 test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
 
-# Apply PCA for dimensionality reduction (optional)
-pca = PCA(n_components=100)
-train_features = pca.fit_transform(train_features,)
-val_features = pca.transform(val_features)
-test_features = pca.transform(test_features)
+# # Apply PCA for dimensionality reduction (optional)
+# pca = PCA(n_components=100)
+# train_features = pca.fit_transform(train_features,)
+# val_features = pca.transform(val_features)
+# test_features = pca.transform(test_features)
+
+# # Use the best_radius found from the validation set
+# nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=1.0).fit(train_features)
+
+# # Get distances and indices for a single query image
+# query_index = 0  # Change this to select a different query image
+# distances, indices = nbrs.radius_neighbors([test_features[query_index]], sort_results=True)
+
+# test_image_path = test_img_paths[query_index]
+# query_label = test_labels[query_index]
+# neighbors = indices[0]
+# distances_to_neighbors = distances[0]
+# print(distances_to_neighbors)
+# print(f'Neighbours:{neighbors}')
+# print('=========== TEST IMAGE PATH ============')
+# print(test_image_path)
+# print()
+# print('=========== NEIGHBOUR IMAGE PATH ============')
+# for i in neighbors:
+#     print(train_img_paths[i])
 
 #------------------------------------------------------------------------------------------------------------------------
 # Determine optimal radius
 #------------------------------------------------------------------------------------------------------------------------
-radii = np.linspace(0.01, 1, 100)  # Define a range of radii to test
+thresholds = np.linspace(0.1,1,100)  # Define a range of radii to test
 
-best_radius = None
-best_precision = -1
+best_precision = 0
+best_radius = 0
+best_recall = 0
+best_f1 = 0
+radius = 1.0
+best_threshold = None
 
-for radius in radii:
-    nbrs = NearestNeighbors(metric='cosine', radius=radius, algorithm='brute').fit(train_features)
-    distances, indices = nbrs.radius_neighbors(val_features)
+# Fit the Nearest Neighbors model
+large_radius = 1.0  # Set a large radius
+nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=large_radius).fit(train_features)
 
-    true_positives = 0
-    false_positives = 0
+# Range of thresholds to evaluate
+thresholds = np.linspace(0.001, 0.1, 100)  # Adjust the range and step size as needed
 
-    for i, neighs in enumerate(indices):
-        if len(neighs) == 0:
-            continue  # Handle case where no neighbors are found
-        neigh_labels = train_labels[neighs]
-        query_label = val_labels[i]
-        matching_neighbors = neigh_labels == query_label
+best_threshold = None
+best_score = -np.inf
+
+for threshold in thresholds:
+    correct_predictions = 0
+    total_predictions = 0
+    
+    for query_index in range(len(val_features)):
+        distances, indices = nbrs.radius_neighbors([val_features[query_index]], sort_results=True)
+        filtered_indices = [index for dist, index in zip(distances[0], indices[0]) if dist < threshold]
         
-        true_positives += np.sum(matching_neighbors)
-        false_positives += np.sum(~matching_neighbors)
+        if filtered_indices:
+            # For simplicity, use the most common label among neighbors as the prediction
+            neighbor_labels = train_labels[filtered_indices]
+            predicted_label = np.bincount(neighbor_labels).argmax()
+            correct_predictions += (predicted_label == val_labels[query_index])
+        
+        total_predictions += 1
+    
+    score = correct_predictions / total_predictions
+    
+    if score > best_score:
+        best_score = score
+        best_threshold = threshold
 
-    if (true_positives + false_positives) > 0:
-        precision = true_positives / (true_positives + false_positives)
-    else:
-        precision = 0
+print(f"Best threshold: {best_threshold} with score: {best_score}")
+        
 
-    if precision > best_precision:
-        best_precision = precision
-        best_radius = radius
+# Use the best_radius found from the validation set
+nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=1.0).fit(train_features)
 
-print(f"Optimal radius on validation set: {best_radius} with precision: {best_precision}")
+# Get distances and indices for a single query image
+query_index = 0  # Change this to select a different query image
+distances, indices = nbrs.radius_neighbors([test_features[query_index]], sort_results=True)
+filtered_indices = [index for dist, index in zip(distances[0], indices[0]) if dist < best_threshold]
+        
+test_image_path = test_img_paths[query_index]
+query_label = test_labels[query_index]
+neighbors = indices[0]
+distances_to_neighbors = distances[0]
+print(distances_to_neighbors)
+print(f'Neighbours:{neighbors}')
+print('=========== TEST IMAGE PATH ============')
+print(test_image_path)
+print()
+print('=========== NEIGHBOUR IMAGE PATH ============')
+for i in neighbors:
+    print(train_img_paths[i])
+
+
+
+sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #------------
 # test set
 #--------------
+# # Use the best_radius found from the validation set
+# nbrs = NearestNeighbors(metric='cosine', radius=100, algorithm='brute').fit(train_features)
 
-# Use the best_radius found from the validation set
-nbrs = NearestNeighbors(metric='cosine', radius=best_radius, algorithm='brute').fit(train_features)
-distances, indices = nbrs.radius_neighbors(test_features)
+# # Get distances and indices for a single query image
+# query_index = 0  # Change this to select a different query image
+# distances, indices = nbrs.radius_neighbors([test_features[query_index]])
+
+# test_image_path = test_img_paths[query_index]
+# query_label = test_labels[query_index]
+# neighbors = indices[0]
+# distances_to_neighbors = distances[0]
+# print(neighbors)
+# print(distances_to_neighbors)
+# sys.exit()
 
 true_positives = 0
 false_positives = 0
-total_predictions = 0
-precision_scores = []
-
-# Store test image paths and their nearest neighbors
+false_negatives = 0
 test_img_neighbors = []
 
 for i, neighs in enumerate(indices):
@@ -266,8 +347,9 @@ for i, neighs in enumerate(indices):
     neighbors = []
     
     if len(neighs) == 0:
+        false_negatives += 1  # No neighbors found, count as false negative
         test_img_neighbors.append((test_img_path, neighbors))
-        continue  # Handle case where no neighbors are found
+        continue  # Skip further processing for this test image
     
     neigh_labels = train_labels[neighs]
     query_label = test_labels[i]
@@ -282,23 +364,40 @@ for i, neighs in enumerate(indices):
         else:
             false_positives += 1
 
-    total_predictions += len(neigh_labels)
     test_img_neighbors.append((test_img_path, neighbors))
 
-if (true_positives + false_positives) > 0:
-    test_precision = true_positives / (true_positives + false_positives)
+total_predictions = true_positives + false_positives
+total_relevant = true_positives + false_negatives
+
+if total_predictions > 0:
+    test_precision = true_positives / total_predictions
 else:
     test_precision = 0
 
+if total_relevant > 0:
+    test_recall = true_positives / total_relevant
+else:
+    test_recall = 0
+
+if (test_precision + test_recall) > 0:
+    test_f1 = 2 * (test_precision * test_recall) / (test_precision + test_recall)
+else:
+    test_f1 = 0
+
 print(f"Test precision with optimal radius: {test_precision}")
+print(f"Test recall with optimal radius: {test_recall}")
+print(f"Test F1 score with optimal radius: {test_f1}")
 
-# Print test image paths and their nearest neighbors
-for test_img, neighbors in test_img_neighbors:
-    print(f"Test Image: {test_img}")
-    for neighbor_path, match in neighbors:
-        print(f"    Neighbor: {neighbor_path}, Match: {match}")
+# Print the total counts for debugging
+print(f"Total True Positives: {true_positives}")
+print(f"Total False Positives: {false_positives}")
+print(f"Total False Negatives: {false_negatives}")
 
-sys.exit()
+# # Print test image paths and their nearest neighbors
+# for test_img, neighbors in test_img_neighbors:
+#     print(f"Test Image: {test_img}")
+#     for neighbor_path, match in neighbors:
+#         print(f"    Neighbor: {neighbor_path}, Match: {match}")
 
 # Function to load and display images
 def load_and_display_image(img_path, ax, title):
@@ -311,16 +410,22 @@ def load_and_display_image(img_path, ax, title):
         print(f"Error loading image {img_path}: {e}")
         ax.axis('off')
 
-# Select 5 random indices from the test set
-num_samples_to_visualize = 5
-random_indices = np.random.choice(len(test_features), num_samples_to_visualize, replace=False)
+# Find indices of test images that have neighbors
+indices_with_neighbors = [i for i, neighs in enumerate(indices) if len(neighs) > 0]
 
+# Ensure we have at least 5 samples with neighbors
+if len(indices_with_neighbors) < 5:
+    raise ValueError("Not enough test samples with neighbors")
+
+# Select 5 random indices from the test samples that have neighbors
+num_samples_to_visualize = 5
+random_indices = np.random.choice(indices_with_neighbors, num_samples_to_visualize, replace=False)
 
 # Display the random test samples along with their nearest neighbors
 for row, idx in enumerate(random_indices):
     # Construct the full path for the test image
     test_image_path = os.path.join(root_dir, test_img_paths[idx])
-    actual_label = test_labels[idx]  # Assume y_test contains the actual labels
+    actual_label = test_labels[idx]  # Assume test_labels contains the actual labels
     distances_to_neighbors = distances[idx]
     neighbor_indices = indices[idx]
 
