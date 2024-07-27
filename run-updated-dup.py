@@ -29,7 +29,7 @@ from utils import *
 parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
-parser.add_argument('--num_epochs', type=int, default=25)
+parser.add_argument('--num_epochs', type=int, default=2)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
@@ -101,48 +101,65 @@ class_names = ['Accessories','Altars','Candelabra','Coins - Metals','Columns - C
 ,'Heads','Human Parts','Inscriptions','Islamic','Jewelry','Manuscripts','Mirrors'
 ,'Musical Instruments','Oscilla','Other Objects','Reliefs','Sarcophagi - Urns',
 'Sardinian Boats','Seal Stones - Seals - Stamps','Statues','Tools','Vases','Weapons']
+
 def train(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     total_step = len(train_loader)
+    
     for i, (images, labels, _) in enumerate(train_loader):
         images = images.to(device)
-        labels = labels.to(device).float()  
+        labels = labels.to(device).float()  # Ensure labels are float for BCEWithLogitsLoss
         # Forward pass
         outputs = model(images)
+        # Compute the loss using BCEWithLogitsLoss (which applies sigmoid internally)
         loss = criterion(outputs, labels)
-        # Backward and optimize
+        # Backward pass and optimization
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        # Accumulate the running loss
         running_loss += loss.item()
-    # Returns the average loss (this will be after every epoch)
+    
+    # Compute the average loss for the epoch
     average_loss = running_loss / total_step
     print('Training Loss: {:.4f}'.format(average_loss))
+    
     return average_loss
 
 def validate(model, valid_loader, criterion, device):
     model.eval()
-    val_loss = 0.0
-    correct = 0
-    total = 0
+    running_loss = 0.0
+    correct_predictions = 0
+    total_predictions = 0
+    total_step = len(valid_loader)
     
     with torch.no_grad():
-        for images, labels, _ in valid_loader:
+        for i, (images, labels, _) in enumerate(valid_loader):
             images = images.to(device)
-            labels = labels.to(device).float()  
+            labels = labels.to(device).float()  # Ensure labels are float for BCEWithLogitsLoss
+            # Forward pass
             outputs = model(images)
+            # Compute the loss using BCEWithLogitsLoss (which applies sigmoid internally)
             loss = criterion(outputs, labels)
-            val_loss += loss.item()
-            # Apply a threshold to get binary predictions
-            predicted = (torch.sigmoid(outputs) > 0.5).int()
-            # Calculate correct predictions
-            correct += (predicted == labels.int()).sum().item()
-            total += labels.numel()  # total number of elements in the labels
-    val_loss /= len(valid_loader)
-    val_accuracy = correct / total
-    print('Validation Loss: {:.4f}, Validation Accuracy: {:.4f}'.format(val_loss, val_accuracy))
+            running_loss += loss.item()
+            # Apply sigmoid to convert logits to probabilities
+            probs = torch.sigmoid(outputs)
+            # Round probabilities to get binary predictions
+            predicted = probs.round()
+            # Compute the number of correct predictions
+            correct_predictions += (predicted == labels).sum().item()
+            total_predictions += labels.size(0)
+    
+    # Compute the average loss for the epoch
+    val_loss = running_loss / total_step
+    # Compute the accuracy
+    val_accuracy = correct_predictions / total_predictions
+    
+    print('Validation Loss: {:.4f}, Accuracy: {:.4f}'.format(val_loss, val_accuracy))
+    
     return val_loss, val_accuracy
+
 
 def test(model, test_loader, device, top_n=3):
     model.eval()
@@ -252,6 +269,7 @@ def get_top_n_subset(indices, top_n_predictions, top_n_probabilities):
 #--------------------------------------------------------------------------------------------------------------------------
 # Running the model
 #--------------------------------------------------------------------------------------------------------------------------
+
 from modelcompletedup import *
 num_classes = args.num_classes
 hidden_features = args.hidden_features
@@ -297,6 +315,15 @@ criterion = criterion.to(device)
 optimizer = optim.SGD(model.custom_classifier.parameters(), lr=learning_rate)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
+num_epochs = 10
+
+for epoch in range(num_epochs):
+    print(f'Epoch {epoch+1}/{num_epochs}')
+    train_loss = train(model, train_loader, criterion, optimizer, device)
+    val_loss, val_accuracy = validate(model, valid_loader, criterion, device)
+    print('-' * 20)
+
+sys.exit()
 # Generate a timestamp to include in the log file name
 timestamp = time.strftime("%Y%m%d-%H%M%S")
 log_dir = "train_val_logs"
