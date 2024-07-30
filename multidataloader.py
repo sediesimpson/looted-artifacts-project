@@ -6,6 +6,8 @@ from PIL import Image
 import torch
 from collections import defaultdict
 import cv2
+import torchvision.models as models
+from torchvision.models import ResNet50_Weights
 
 class CustomImageDataset2(Dataset):
     def __init__(self, root_dir):
@@ -13,11 +15,12 @@ class CustomImageDataset2(Dataset):
         self.classes = sorted(cls for cls in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, cls)))
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
         self.img_paths, self.labels = self.get_image_paths_and_labels()
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        # self.transform = transforms.Compose([
+        #     transforms.Resize((224, 224)),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # ])
+        self.transform = ResNet50_Weights.DEFAULT.transforms()
         self.num_classes = len(self.classes)
 
     def get_image_paths_and_labels(self):
@@ -102,11 +105,11 @@ class CustomImageDataset2(Dataset):
 
 # if __name__ == '__main__':
 
-#     rootdir = '/rds/user/sms227/hpc-work/dissertation/data/TD10A'
-#     dataset = CustomImageDataset(rootdir)
+#     rootdir = '/rds/user/sms227/hpc-work/dissertation/data/la_data'
+#     dataset = CustomImageDataset2(rootdir)
 #     img_paths, labels = dataset.get_image_paths_and_labels() 
 #     print(dataset.count_images_per_label())
-#     #print(dataset.classes)
+    #print(dataset.classes)
 
 
 
