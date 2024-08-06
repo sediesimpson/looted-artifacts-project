@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(description = 'Running Baseline Models')
 
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--num_epochs', type=int, default=25)
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=10)
 parser.add_argument('--weight_decay', type=int, default=0.001)
 parser.add_argument('--momentum', type=int, default=0.9)
 parser.add_argument('--root_dir', type=str, default="/rds/user/sms227/hpc-work/dissertation/data/la_data")
@@ -102,7 +102,8 @@ class_names = ['Accessories','Altars','Candelabra','Coins - Metals','Columns - C
 def train(model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
-    total_step = len(train_loader)
+    correct_predictions = 0
+    total_predictions = 0
     print('Device in training loop:', device)
 
     for i, (images, labels, _) in tqdm(enumerate(train_loader)):
@@ -116,12 +117,12 @@ def train(model, train_loader, criterion, optimizer, device):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        running_loss += loss.item() # Accumulate loss 
+        running_loss += loss.item()  # Accumulate loss 
 
-    average_loss = running_loss / total_step  # Compute the average loss for the epoch
+    average_loss = running_loss / len(train_loader)  # Compute the average loss for the epoch
     print('Training Loss: {:.4f}'.format(average_loss))
-    
     return average_loss
+
 
 def validate(model, valid_loader, criterion, device):
     model.eval()
@@ -135,23 +136,23 @@ def validate(model, valid_loader, criterion, device):
         for i, (images, labels, _) in enumerate(valid_loader):
             images = images.to(device)
             labels = labels.to(device).float()  # Float labels for BCEWithLogitsLoss
-            # Forward pass
+
             outputs = model(images)
-            # Compute the loss using BCEWithLogitsLoss 
+
             loss = criterion(outputs, labels) 
-            running_loss += loss.item()
-            # Apply sigmoid to convert logits to probabilities
-            probs = torch.sigmoid(outputs)
-            # Round probabilities to get binary predictions
+            running_loss += loss.item() 
+
+            probs = torch.sigmoid(outputs) 
+
             predicted = probs.round()
-            # Compute the number of correct predictions
+
             correct_predictions += (predicted == labels).sum().item()
-            total_predictions += labels.size(0)
+
     
     # Compute the average loss for the epoch
-    val_loss = running_loss / total_step
+    val_loss = running_loss / len(valid_loader) 
     # Compute the accuracy
-    val_accuracy = correct_predictions / total_predictions
+    val_accuracy = correct_predictions / labels.size(1) 
     
     print('Validation Loss: {:.4f}, Accuracy: {:.4f}'.format(val_loss, val_accuracy))
     
