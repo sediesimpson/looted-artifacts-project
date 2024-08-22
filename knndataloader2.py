@@ -10,7 +10,7 @@ import numpy as np
 class CustomImageDatasetTrain(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
-        self.img_paths, self.labels = self.get_image_paths_and_labels()
+        self.img_paths, self.labels, self.label_counts = self.get_image_paths_and_labels()
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -24,6 +24,7 @@ class CustomImageDatasetTrain(Dataset):
     def get_image_paths_and_labels(self):
         img_paths = []
         labels = []
+        label_counts = []
         files = [name for name in glob.glob(DATASET)]
         files.sort()
 
@@ -33,13 +34,19 @@ class CustomImageDatasetTrain(Dataset):
 
         for file in trainset:
             for root, _, files in os.walk(str(file)):
+                finalfilecount = 0
                 for finalfile in files:
                     if finalfile.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and finalfile != '.DS_Store':
                             full_path = os.path.join(root, finalfile)
                             img_paths.append(full_path)
                             label = os.path.basename(root)
                             labels.append(label)
-        return img_paths, labels
+                    finalfilecount +=1 
+                label_counts.append(finalfilecount)
+
+                for _ in range(finalfilecount):
+                    label_counts.append(finalfilecount)
+        return img_paths, labels, label_counts
 
     def __len__(self):
         return len(self.img_paths)
@@ -48,20 +55,21 @@ class CustomImageDatasetTrain(Dataset):
         img_path = self.img_paths[idx]
         label = self.labels[idx]
         label_idx = self.label_to_idx[label]
+        label_counts = self.label_counts[idx]
         try:
             image = Image.open(img_path).convert('RGB')
         except (IOError, OSError) as e:
             print(f"Error loading image {img_path}: {e}")
             return None
         image = self.transform(image)
-        return image, label_idx, img_path
+        return image, label_idx, img_path, label_counts
 
-    def count_images_per_label(self):
-            # Method to count the number of images for each label
-            label_counts = {cls_name: 0 for cls_name in self.classes}
-            for label in self.labels:
-                label_counts[label] += 1
-            return label_counts
+    # def count_images_per_label(self):
+    #         # Method to count the number of images for each label
+    #         label_counts = {cls_name: 0 for cls_name in self.classes}
+    #         for label in self.labels:
+    #             label_counts[label] += 1
+    #         return label_counts
     
     def count_unique_labels(self):
       # Method to count the number of unique labels
@@ -86,6 +94,7 @@ class CustomImageDatasetTest(Dataset):
     def get_image_paths_and_labels(self):
         img_paths = []
         labels = []
+        label_counts = []
         files = [name for name in glob.glob(DATASET)]
         files.sort()
 
@@ -100,13 +109,17 @@ class CustomImageDatasetTest(Dataset):
 
         for file in testset:
             for root, _, files in os.walk(str(file)):
+                finalfilecount = 0
                 for finalfile in files:
                     if finalfile.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and finalfile != '.DS_Store':
                             full_path = os.path.join(root, finalfile)
                             img_paths.append(full_path)
                             label = os.path.basename(root)
                             labels.append(label)
-        return img_paths, labels
+                    finalfilecount +=1 
+                for _ in range(finalfilecount):
+                    label_counts.append(finalfilecount)
+        return img_paths, labels, label_counts
 
     def __len__(self):
         return len(self.img_paths)
