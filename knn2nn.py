@@ -66,7 +66,7 @@ root_dir = "/rds/user/sms227/hpc-work/dissertation/data/duplicatedata"
 train_dataset = CustomImageDatasetTrain(root_dir)
 #test_dataset = CustomImageDatasetTest(root_dir)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
 #------------------------------------------------------------------------------------------------------------------------
@@ -120,224 +120,242 @@ train_features, train_labels, train_img_paths, train_label_counts = extract_feat
 # Try out a couple of radii and see what is returned 
 #------------------------------------------------------------------------------------------------------------------------
 # We set a radius to capture all potential NNs
-nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=0.3).fit(train_features)
+print(len(train_features))
+print('length of train labels:',len(train_labels))
 
-# Get distances and indices for a single query image
-query_index = 50 # Change this to select a different query image
+query_index = 50
+nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=500).fit(train_features)
 distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
+print(len(distances[0]))
 
-distances = [dist[1:] for dist in distances] # remove first distance as it is itself
-indices = [idx[1:] for idx in indices] # remove first index as it is itself
+# # Get distances and indices for a single query image
+# query_index = 50 # Change this to select a different query image
+# distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
+
+# distances = [dist[1:] for dist in distances] # remove first distance as it is itself
+# indices = [idx[1:] for idx in indices] # remove first index as it is itself
 
 
-print('===========  INDICES ============')
-print(indices)
-print()
-print('=========== DISTANCES ============')
-print(distances)
-print()
-print('=========== TEST IMAGE PATH ============')
-imgs_to_plot = []
-print(train_img_paths[query_index])
-imgs_to_plot.append(train_img_paths[query_index])
-print()
-print('=========== NEIGHBOUR IMAGE PATHS ============')
-for i in indices[0]:
-    imgs_to_plot.append(train_img_paths[i])
-print(imgs_to_plot)
+# print('===========  INDICES ============')
+# print(indices)
+# print()
+# print('=========== DISTANCES ============')
+# print(distances)
+# print()
+# print('=========== TEST IMAGE PATH ============')
+# imgs_to_plot = []
+# print(train_img_paths[query_index])
+# imgs_to_plot.append(train_img_paths[query_index])
+# print()
+# print('=========== NEIGHBOUR IMAGE PATHS ============')
+# for i in indices[0]:
+#     imgs_to_plot.append(train_img_paths[i])
+# print(imgs_to_plot)
 
-print('=========== PLOTTING IMAGES ============')
-# Number of images
-num_images = len(imgs_to_plot)
+# print('=========== PLOTTING IMAGES ============')
+# # Number of images
+# num_images = len(imgs_to_plot)
 
-# Maximum number of columns
-max_cols = 5
-rows = math.ceil(num_images / max_cols)  # Calculate the number of rows needed
+# # Maximum number of columns
+# max_cols = 5
+# rows = math.ceil(num_images / max_cols)  # Calculate the number of rows needed
 
-# Create a figure with a dynamic grid of subplots (multiple rows if needed)
-fig, axes = plt.subplots(rows, min(num_images, max_cols), figsize=(min(num_images, max_cols) * 5, rows * 5))  # Adjust figsize as needed
+# # Create a figure with a dynamic grid of subplots (multiple rows if needed)
+# fig, axes = plt.subplots(rows, min(num_images, max_cols), figsize=(min(num_images, max_cols) * 5, rows * 5))  # Adjust figsize as needed
 
-# Flatten axes array for easier iteration if grid has more than 1 row
-axes = axes.flatten() if num_images > 1 else [axes]
+# # Flatten axes array for easier iteration if grid has more than 1 row
+# axes = axes.flatten() if num_images > 1 else [axes]
 
-# Loop through each image path and plot them
-for i, img_path in enumerate(imgs_to_plot):
-    img = Image.open(img_path)  # Open the image
-    axes[i].imshow(img)  # Display the image
-    axes[i].axis('off')  # Hide the axes
+# # Loop through each image path and plot them
+# for i, img_path in enumerate(imgs_to_plot):
+#     img = Image.open(img_path)  # Open the image
+#     axes[i].imshow(img)  # Display the image
+#     axes[i].axis('off')  # Hide the axes
 
-    # Add labels
-    if i == 0:
-        axes[i].set_title("Query Image")
-    else:
-        axes[i].set_title(f"Neighbour {i}")
+#     # Add labels
+#     if i == 0:
+#         axes[i].set_title("Query Image")
+#     else:
+#         axes[i].set_title(f"Neighbour {i}")
 
-# Hide any unused subplots
-for j in range(i + 1, len(axes)):
-    axes[j].axis('off')
+# # Hide any unused subplots
+# for j in range(i + 1, len(axes)):
+#     axes[j].axis('off')
 
-# Show the plot with all images
-plt.savefig('Aplotsknn/query50notft2.pdf')
+# # Show the plot with all images
+# plt.savefig('Aplotsknn/query50notft2.pdf')
 
-sys.exit()
-#------------------------------------------------------------------------------------------------------------------------
-# Find the pre-processing time for different dataset sizes
-#------------------------------------------------------------------------------------------------------------------------
-save_dir = 'Adatasetsizes/'
-dataset_sizes = []
-preprocessing_times = []
-stddev_preprocessing_times = []
+# sys.exit()
+# #------------------------------------------------------------------------------------------------------------------------
+# # Find the pre-processing time for different dataset sizes
+# #------------------------------------------------------------------------------------------------------------------------
+# save_dir = 'Adatasetsizes/'
+# dataset_sizes = []
+# preprocessing_times = []
+# stddev_preprocessing_times = []
 
-# Assuming train_features is your full training dataset
-train_features_length = len(train_features)
+# # Assuming train_features is your full training dataset
+# train_features_length = len(train_features)
 
-# Define different sizes of the dataset to test
-subset_sizes = np.linspace(1, train_features_length, 10, dtype=int)
+# # Define different sizes of the dataset to test
+# subset_sizes = np.linspace(1, train_features_length, 10, dtype=int)
 
-# Number of runs to average for each subset size
-num_runs = 5
+# # Number of runs to average for each subset size
+# num_runs = 5
 
-for subset_size in subset_sizes:
-    total_preprocessing_time = 0
+# for subset_size in subset_sizes:
+#     total_preprocessing_time = 0
 
-    for _ in range(num_runs):
-        # Subset the training dataset
-        subset_indices = np.random.choice(train_features_length, subset_size, replace=False)
-        subset_train_features = train_features[subset_indices]
+#     for _ in range(num_runs):
+#         # Subset the training dataset
+#         subset_indices = np.random.choice(train_features_length, subset_size, replace=False)
+#         subset_train_features = train_features[subset_indices]
         
-        # Measure the preprocessing time
-        start_time = time.time()
-        # Pre-processing for kNN approach after optimal radius has been found
-        nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=0.3).fit(train_features)
-        end_time = time.time()
+#         # Measure the preprocessing time
+#         start_time = time.time()
+#         # Pre-processing for kNN approach after optimal radius has been found
+#         nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=0.3).fit(train_features)
+#         end_time = time.time()
         
-        preprocessing_time = end_time - start_time
-        total_preprocessing_time += preprocessing_time
+#         preprocessing_time = end_time - start_time
+#         total_preprocessing_time += preprocessing_time
 
-    # Calculate the average preprocessing time for this subset size
-    average_preprocessing_time = total_preprocessing_time / num_runs
-    stddev_preprocessing_time = np.std(total_preprocessing_time)
-    dataset_sizes.append(subset_size)
-    preprocessing_times.append(average_preprocessing_time)
-    stddev_preprocessing_times.append(stddev_preprocessing_time)
+#     # Calculate the average preprocessing time for this subset size
+#     average_preprocessing_time = total_preprocessing_time / num_runs
+#     stddev_preprocessing_time = np.std(total_preprocessing_time)
+#     dataset_sizes.append(subset_size)
+#     preprocessing_times.append(average_preprocessing_time)
+#     stddev_preprocessing_times.append(stddev_preprocessing_time)
     
-    print(f"Subset Size: {subset_size}, Average Preprocessing Time: {average_preprocessing_time}, Std Dev: {stddev_preprocessing_time}")
+#     print(f"Subset Size: {subset_size}, Average Preprocessing Time: {average_preprocessing_time}, Std Dev: {stddev_preprocessing_time}")
 
-# Save arrays to .npy files
-np.save(os.path.join(save_dir, "dataset_sizes_train.npy"), np.array(dataset_sizes))
-np.save(os.path.join(save_dir, "preprocessing_times.npy"), np.array(preprocessing_times))
-np.save(os.path.join(save_dir, "stddev_preprocessing_times.npy"), np.array(stddev_preprocessing_times))
-#------------------------------------------------------------------------------------------------------------------------
-# Plot pre-processing time versus dataset size
-#------------------------------------------------------------------------------------------------------------------------
-# Load the dataset sizes and query times from the .npy files
-dataset_sizes = np.load(os.path.join(save_dir, "dataset_sizes_train.npy"))
-preprocessing_times = np.load(os.path.join(save_dir, "preprocessing_times.npy"))
-stddev_preprocessing_times = np.load(os.path.join(save_dir, "stddev_preprocessing_times.npy"))
+# # Save arrays to .npy files
+# np.save(os.path.join(save_dir, "dataset_sizes_train.npy"), np.array(dataset_sizes))
+# np.save(os.path.join(save_dir, "preprocessing_times.npy"), np.array(preprocessing_times))
+# np.save(os.path.join(save_dir, "stddev_preprocessing_times.npy"), np.array(stddev_preprocessing_times))
+# #------------------------------------------------------------------------------------------------------------------------
+# # Plot pre-processing time versus dataset size
+# #------------------------------------------------------------------------------------------------------------------------
+# # Load the dataset sizes and query times from the .npy files
+# dataset_sizes = np.load(os.path.join(save_dir, "dataset_sizes_train.npy"))
+# preprocessing_times = np.load(os.path.join(save_dir, "preprocessing_times.npy"))
+# stddev_preprocessing_times = np.load(os.path.join(save_dir, "stddev_preprocessing_times.npy"))
 
-# Print raw data
-print("Dataset Sizes:", dataset_sizes)
-print("Preprocessing Time", preprocessing_times)
-print("Std Dev Preprocessing Time", stddev_preprocessing_times)
-# Plot Query Time vs Dataset Size
-plt.figure(figsize=(10, 5))
-plt.plot(dataset_sizes, preprocessing_times, color='Teal')
-# plt.fill_between(dataset_sizes, 
-#                 preprocessing_times - stddev_preprocessing_times, 
-#                 preprocessing_times + stddev_preprocessing_times , 
-#                 color='b', alpha=0.2, label='+- 1 Standard Deviation')
-plt.xlabel('Dataset Size')
-plt.ylabel('Pre-processing time')
-plt.title('Preprocessing Time vs Dataset Size')
-plt.grid(True)
-plt.savefig('Adatasetsizes/preprocessing.png')
+# # Print raw data
+# print("Dataset Sizes:", dataset_sizes)
+# print("Preprocessing Time", preprocessing_times)
+# print("Std Dev Preprocessing Time", stddev_preprocessing_times)
+# # Plot Query Time vs Dataset Size
+# plt.figure(figsize=(10, 5))
+# plt.plot(dataset_sizes, preprocessing_times, color='Teal')
+# # plt.fill_between(dataset_sizes, 
+# #                 preprocessing_times - stddev_preprocessing_times, 
+# #                 preprocessing_times + stddev_preprocessing_times , 
+# #                 color='b', alpha=0.2, label='+- 1 Standard Deviation')
+# plt.xlabel('Dataset Size')
+# plt.ylabel('Pre-processing time')
+# plt.title('Preprocessing Time vs Dataset Size')
+# plt.grid(True)
+# plt.savefig('Adatasetsizes/preprocessing.png')
 
 
-sys.exit()
+# sys.exit()
 #------------------------------------------------------------------------------------------------------------------------
 # Find the optimal radius
 #------------------------------------------------------------------------------------------------------------------------
-radii = np.linspace(0.05, 0.5, 100)
+allcurves = []
+
+for query_index, query in enumerate(train_features):
+    correct = 0 
+    curve = []
+    num_correct = train_label_counts[query_index]
 
 
-best_radius = 0 
-best_recall = 0
-final_precision = 0
-final_f1_score = 0 
+    tf = train_features[query_index]
+    nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=500).fit(train_features)
+    distances, indices = nbrs.radius_neighbors([query], sort_results=True)
 
-recalls = []
-precisions = []
-f1_scores = []
+    distances = distances[0] # remove first distance as it is itself
+    print(f'nearest neighbor={distances[0]}')
+    indices = indices[0] # remove first index as it is itself
 
-for radius in radii:
-    true_positives = 0
-    false_positives = 0
-    true_negatives = 0
-    false_negatives = 0 
-    
-    nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=radius).fit(train_features)
+    true_label = train_labels[query_index]
 
-    for query_index in range(len(train_features)):
-        distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
-
-        distances = distances[0][1:] # remove first distance as it is itself
-        indices = indices[0][1:] # remove first index as it is itself
-
-        true_label = train_labels[query_index]
-        neighbor_labels = train_labels[indices]
-
-        if neighbor_labels.size > 0:
-            for label in neighbor_labels:
-                if label == true_label:
-                    true_positives +=1 
-                else:
-                    true_negatives +=1 
-
-            fn = train_label_counts[query_index] - true_positives
-
-            if fn < 0:
-                fn = 0
-
-            false_negatives += fn
-
-            fp = len(neighbor_labels) - true_positives
-
-            if fp < 0:
-                fp = 0
-
-            false_positives += fp
-
-    if (true_positives + false_negatives) > 0:
-        recall = true_positives / (true_positives + false_negatives)
-    else:
-        recall = 0
-
-    if (true_positives + false_positives) > 0:
-        precision = true_positives / (true_positives + false_positives) 
-    else:
-        precision = 0
-
-    if (precision + recall) > 0:
-        f1 = (2 * precision * recall) / (precision + recall)
-    else:
-        f1 = 0 
-
-    recalls.append(recall)
-    precisions.append(precision)
-    f1_scores.append(f1)
-
-    if recall >= best_recall:
-        best_recall = recall
-        best_radius = radius
-        final_precision = precision
-        final_f1_score = f1
-
+    for i, idx in enumerate(indices, start=1):
+        neighbor_label = train_labels[idx]
+        if neighbor_label == true_label:
+            correct += 1
+            print(f'neighbor_label={neighbor_label}, true label={true_label}')
+        if i == 1:
+            print(f'index={idx}')
         
-print(f"Best radius: {best_radius} with best recall: {best_recall}, precision:{precision} and f1_score:{f1}")
+        precision = correct / i 
+        recall = correct / num_correct.item()
 
-np.save('Arecalls/recalls51.npy', recalls)
-np.save('Aprecisions/precisions51.npy', precisions)
-np.save('Af1scores/f1scores51.npy', f1_scores)
+        if recall > 1:
+            print(f'recall={recall}, correct={correct}, num correct={num_correct}, num correct item={num_correct.item()}')
+
+        #print(f'precision={precision}, recall={recall}')
+
+        curve.append([i, precision, recall])
+
+    if query_index == 3:
+        break
+
+    allcurves.append(curve)
+
+allcurves_stacked = np.stack(allcurves, axis=0)
+
+# print(allcurves_stacked)
+print('shape of curve:', allcurves_stacked.shape)
+print('indices:', allcurves_stacked[0][:,0])
+
+average_precision_at_k = []
+average_recall_at_k = []
+for i in range(len(allcurves_stacked[0][:,0])):
+    average_precision = np.mean(allcurves_stacked[:,i,1])
+    average_recall = np.mean(allcurves_stacked[:,i,2])
+    average_precision_at_k.append(average_precision)
+    average_recall_at_k.append(average_recall)    
+
+print('average precision:', average_precision_at_k)
+print('average recall:', average_recall_at_k)
+
+
+
+
+sys.exit()
+print(allcurves_stacked[0])
+
+plt.figure(figsize=(12, 4))
+plt.plot(allcurves_stacked[0][:, 0], allcurves_stacked[0][:, 1])
+plt.title("Precision")
+plt.xlabel("Number of neighbours")
+plt.ylabel("Precision")
+plt.savefig('Aplotsknn/precision.png')
+
+
+plt.figure(figsize=(12, 4))
+plt.plot(allcurves_stacked[0][:, 0], allcurves_stacked[0][:, 2])
+plt.title("Recall")
+plt.xlabel("Number of neighbours")
+plt.ylabel("Recall")
+plt.savefig('Aplotsknn/recall.png')
+
+plt.figure(figsize=(12, 4))
+plt.plot(allcurves_stacked[0][:, 2], allcurves_stacked[0][:, 1])
+plt.title("PR Curve")
+plt.xlabel("Recall")
+plt.ylabel("Precision")
+plt.savefig('Aplotsknn/prcurve.png')
+
+sys.exit()
+
+#print(f"Best radius: {best_radius} with best recall: {best_recall}, precision:{precision} and f1_score:{f1}")
+
+# np.save('Arecalls/recalls51.npy', recalls)
+# np.save('Aprecisions/precisions51.npy', precisions)
+# np.save('Af1scores/f1scores51.npy', f1_scores)
 # print('recalls:', recalls)
 # print('precisions:', precisions)
 # print('f1 scores:', f1_scores)
