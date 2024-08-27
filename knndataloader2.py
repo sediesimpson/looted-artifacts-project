@@ -29,7 +29,7 @@ class CustomImageDatasetTrain(Dataset):
         files.sort()
 
         train_size = round(len(files) * 0.8)
-        rng = np.random.default_rng(seed=42)
+        rng = np.random.default_rng(seed=50)
         trainset = rng.choice(files, size=train_size, replace=False, shuffle=False)
 
         for file in trainset:
@@ -37,12 +37,11 @@ class CustomImageDatasetTrain(Dataset):
                 finalfilecount = 0
                 for finalfile in files:
                     if finalfile.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG')) and finalfile != '.DS_Store':
-                            full_path = os.path.join(root, finalfile)
-                            img_paths.append(full_path)
-                            label = os.path.basename(root)
-                            labels.append(label)
-                    finalfilecount +=1 
-                label_counts.append(finalfilecount)
+                        full_path = os.path.join(root, finalfile)
+                        img_paths.append(full_path)
+                        label = os.path.basename(root)
+                        labels.append(label)
+                        finalfilecount +=1
 
                 for _ in range(finalfilecount):
                     label_counts.append(finalfilecount)
@@ -99,7 +98,7 @@ class CustomImageDatasetTest(Dataset):
         files.sort()
 
         train_size = round(len(files) * 0.8)
-        rng = np.random.default_rng(seed=42)
+        rng = np.random.default_rng(seed=50)
         trainset = rng.choice(files, size=train_size, replace=False, shuffle=False)
         #print(trainset)
         #print(); print()
