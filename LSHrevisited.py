@@ -22,7 +22,7 @@ from PIL import Image
 from tqdm import tqdm
 import time
 from knndataloader2 import * 
-
+import math
 #------------------------------------------------------------------------------------------------------------------------
 # Define CustomResNetClassifier
 #------------------------------------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ torch.cuda.manual_seed_all(51)
 # Create train dataset
 root_dir = "/rds/user/sms227/hpc-work/dissertation/data/duplicatedata"
 train_dataset = CustomImageDatasetTrain(root_dir)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
 #------------------------------------------------------------------------------------------------------------------------
 # Define the feature extraction function
@@ -198,24 +198,62 @@ class LSH:
 
 
 
-# # Train LSH on the full training dataset
-# lsh = LSH(train_features)
-# lsh.train(num_vector=10, seed=42)
+# Train LSH on the full training dataset
+lsh = LSH(train_features)
+lsh.train(num_vector=10, seed=42)
 
-# # Find the nearest neighbours
-# query_index = 0 
-# query_vec = train_features[query_index]
-# max_search_radius = 0
-# all_neighbors = lsh.query(query_vec, len(train_features), max_search_radius)
+# Find the nearest neighbours
+query_index = 50
+query_vec = train_features[query_index]
+all_neighbors = lsh.query(query_vec, 0)
+print('==============true label==================')
+true_label = train_labels[query_index]
+print('true label:', true_label)
 
-# print(all_neighbors)
-# #print(all_neighbors['id'])
+imgs_to_plot = []
+imgs_to_plot.append(train_img_paths[query_index])
+print('==============neigbour label==================')
+neighbor_labels = [train_labels[i] for i in all_neighbors['id']]
+print('neighbor labels:',neighbor_labels)
 
-# for i in all_neighbors['id']:
-#     print('==============neigbour id==================')
-#     print(i)
-#     print('==============neigbour label==================')
-#     print(train_labels[i])
+neighbor_paths = [train_img_paths[i] for i in neighbor_labels]
+imgs_to_plot.extend(neighbor_paths)
+print('images to plot:', imgs_to_plot)
+print('=========== PLOTTING IMAGES ============')
+# Number of images
+num_images = len(imgs_to_plot)
+
+# Maximum number of columns
+max_cols = 5
+rows = math.ceil(num_images / max_cols)  # Calculate the number of rows needed
+
+# Create a figure with a dynamic grid of subplots (multiple rows if needed)
+fig, axes = plt.subplots(rows, min(num_images, max_cols), figsize=(min(num_images, max_cols) * 5, rows * 5))  # Adjust figsize as needed
+
+# Flatten axes array for easier iteration if grid has more than 1 row
+axes = axes.flatten() if num_images > 1 else [axes]
+
+# Loop through each image path and plot them
+for i, img_path in enumerate(imgs_to_plot):
+    img = Image.open(img_path)  # Open the image
+    axes[i].imshow(img)  # Display the image
+    axes[i].axis('off')  # Hide the axes
+
+    # Add labels
+    if i == 0:
+        axes[i].set_title("Query Image")
+    else:
+        axes[i].set_title(f"Neighbour {i}")
+
+# Hide any unused subplots
+for j in range(i + 1, len(axes)):
+    axes[j].axis('off')
+
+# Show the plot with all images
+plt.savefig('Bplotslsh/query50noft.png')
+
+sys.exit()
+
 # #----------------------------------------------------------------------------------------------------------------------------
 # Find best search radius 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -300,9 +338,9 @@ for radius in radii:
         
 print(f"Best radius: {best_radius} with best recall: {best_recall}, precision:{final_precision} and f1_score:{final_f1_score}")
 
-np.save('Brecalls/recalls51.npy', recalls)
-np.save('Bprecisions/precisions51.npy', precisions)
-np.save('Bf1scores/f1scores51.npy', f1_scores)
+# np.save('Brecalls/recalls51.npy', recalls)
+# np.save('Bprecisions/precisions51.npy', precisions)
+# np.save('Bf1scores/f1scores51.npy', f1_scores)
 
           
     

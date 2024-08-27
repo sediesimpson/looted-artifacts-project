@@ -35,6 +35,8 @@ import time
 import pickle
 from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn.utils import shuffle
+
+import math
 #------------------------------------------------------------------------------------------------------------------------
 # Define CustomResNetClassifier
 #------------------------------------------------------------------------------------------------------------------------
@@ -51,7 +53,6 @@ class CustomResNetExtractor(nn.Module):
         x = self.resnet(x)
         return x
 
-
 #--------------------------------------------------------------------------------------------------------------------------
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
@@ -65,7 +66,7 @@ root_dir = "/rds/user/sms227/hpc-work/dissertation/data/duplicatedata"
 train_dataset = CustomImageDatasetTrain(root_dir)
 #test_dataset = CustomImageDatasetTest(root_dir)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
 #------------------------------------------------------------------------------------------------------------------------
@@ -104,10 +105,6 @@ def extract_features(dataloader, model, device):
 #------------------------------------------------------------------------------------------------------------------------
 # Model
 #------------------------------------------------------------------------------------------------------------------------
-# num_classes = train_dataset.count_unique_labels()
-# hidden_dim = 256  # Intermediate hidden layer size
-# weights = models.ResNet50_Weights.DEFAULT  # Pre-trained weights
-# model = CustomResNetClassifier(hidden_dim, num_classes, weights=weights)
 weights = models.ResNet50_Weights.DEFAULT  # Pre-trained weights
 model = CustomResNetExtractor(weights=weights)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -120,58 +117,157 @@ train_features, train_labels, train_img_paths, train_label_counts = extract_feat
 # test_features, test_labels, test_img_paths = extract_features(test_loader, model, device)
 
 #------------------------------------------------------------------------------------------------------------------------
-# Find the optimal distance threshold for the knn method, using precision
+# Try out a couple of radii and see what is returned 
 #------------------------------------------------------------------------------------------------------------------------
-# Range of thresholds to evaluate
-thresholds = np.linspace(0.01, 0.1, 100)
-
-# We set a large radius to capture all potential NNs
-nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=1.0).fit(train_features)
+# We set a radius to capture all potential NNs
+nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=0.3).fit(train_features)
 
 # Get distances and indices for a single query image
-# query_index = 8  # Change this to select a different query image
-# distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
+query_index = 50 # Change this to select a different query image
+distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
 
-# Exclude the point itself if it appears in its own neighbors
-# for i, (dist, idx) in enumerate(zip(distances, indices)):
-#     # Create a mask to exclude the point itself
-#     mask = (dist != 0)  # Assuming the distance of the point to itself is exactly 0
-#     # Apply the mask to filter distances and indices
-#     distances[i] = dist[mask]
-#     indices[i] = idx[mask]
+distances = [dist[1:] for dist in distances] # remove first distance as it is itself
+indices = [idx[1:] for idx in indices] # remove first index as it is itself
 
-# distances = [dist[1:] for dist in distances] # remove first distance as it is itself
-# indices = [idx[1:] for idx in indices] # remove first index as it is itself
 
-# print('distances:', distances)
-# #print('indices:', indices)
+print('===========  INDICES ============')
+print(indices)
+print()
+print('=========== DISTANCES ============')
+print(distances)
+print()
+print('=========== TEST IMAGE PATH ============')
+imgs_to_plot = []
+print(train_img_paths[query_index])
+imgs_to_plot.append(train_img_paths[query_index])
+print()
+print('=========== NEIGHBOUR IMAGE PATHS ============')
+for i in indices[0]:
+    imgs_to_plot.append(train_img_paths[i])
+print(imgs_to_plot)
 
-# filtered_indices = [index for dist, index in zip(distances[0], indices[0]) if dist < 0.055]
-# filtered_distances = [dist for dist, index in zip(distances[0], indices[0]) if dist < 0.055]
+print('=========== PLOTTING IMAGES ============')
+# Number of images
+num_images = len(imgs_to_plot)
 
-# print('=========== FILTERED INDICES ============')
-# print(filtered_indices)
-# print()
-# print('=========== FILTERED DISTANCES ============')
-# print(filtered_distances)
-# print()
-# print('=========== TEST IMAGE PATH ============')
-# print(train_img_paths[query_index])
-# print()
-# print('=========== NEIGHBOUR IMAGE PATHS ============')
-# for i in filtered_indices:
-#     print(train_img_paths[i])
+# Maximum number of columns
+max_cols = 5
+rows = math.ceil(num_images / max_cols)  # Calculate the number of rows needed
 
+# Create a figure with a dynamic grid of subplots (multiple rows if needed)
+fig, axes = plt.subplots(rows, min(num_images, max_cols), figsize=(min(num_images, max_cols) * 5, rows * 5))  # Adjust figsize as needed
+
+# Flatten axes array for easier iteration if grid has more than 1 row
+axes = axes.flatten() if num_images > 1 else [axes]
+
+# Loop through each image path and plot them
+for i, img_path in enumerate(imgs_to_plot):
+    img = Image.open(img_path)  # Open the image
+    axes[i].imshow(img)  # Display the image
+    axes[i].axis('off')  # Hide the axes
+
+    # Add labels
+    if i == 0:
+        axes[i].set_title("Query Image")
+    else:
+        axes[i].set_title(f"Neighbour {i}")
+
+# Hide any unused subplots
+for j in range(i + 1, len(axes)):
+    axes[j].axis('off')
+
+# Show the plot with all images
+plt.savefig('Aplotsknn/query50notft2.pdf')
+
+sys.exit()
+#------------------------------------------------------------------------------------------------------------------------
+# Find the pre-processing time for different dataset sizes
+#------------------------------------------------------------------------------------------------------------------------
+save_dir = 'Adatasetsizes/'
+dataset_sizes = []
+preprocessing_times = []
+stddev_preprocessing_times = []
+
+# Assuming train_features is your full training dataset
+train_features_length = len(train_features)
+
+# Define different sizes of the dataset to test
+subset_sizes = np.linspace(1, train_features_length, 10, dtype=int)
+
+# Number of runs to average for each subset size
+num_runs = 5
+
+for subset_size in subset_sizes:
+    total_preprocessing_time = 0
+
+    for _ in range(num_runs):
+        # Subset the training dataset
+        subset_indices = np.random.choice(train_features_length, subset_size, replace=False)
+        subset_train_features = train_features[subset_indices]
+        
+        # Measure the preprocessing time
+        start_time = time.time()
+        # Pre-processing for kNN approach after optimal radius has been found
+        nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=0.3).fit(train_features)
+        end_time = time.time()
+        
+        preprocessing_time = end_time - start_time
+        total_preprocessing_time += preprocessing_time
+
+    # Calculate the average preprocessing time for this subset size
+    average_preprocessing_time = total_preprocessing_time / num_runs
+    stddev_preprocessing_time = np.std(total_preprocessing_time)
+    dataset_sizes.append(subset_size)
+    preprocessing_times.append(average_preprocessing_time)
+    stddev_preprocessing_times.append(stddev_preprocessing_time)
+    
+    print(f"Subset Size: {subset_size}, Average Preprocessing Time: {average_preprocessing_time}, Std Dev: {stddev_preprocessing_time}")
+
+# Save arrays to .npy files
+np.save(os.path.join(save_dir, "dataset_sizes_train.npy"), np.array(dataset_sizes))
+np.save(os.path.join(save_dir, "preprocessing_times.npy"), np.array(preprocessing_times))
+np.save(os.path.join(save_dir, "stddev_preprocessing_times.npy"), np.array(stddev_preprocessing_times))
+#------------------------------------------------------------------------------------------------------------------------
+# Plot pre-processing time versus dataset size
+#------------------------------------------------------------------------------------------------------------------------
+# Load the dataset sizes and query times from the .npy files
+dataset_sizes = np.load(os.path.join(save_dir, "dataset_sizes_train.npy"))
+preprocessing_times = np.load(os.path.join(save_dir, "preprocessing_times.npy"))
+stddev_preprocessing_times = np.load(os.path.join(save_dir, "stddev_preprocessing_times.npy"))
+
+# Print raw data
+print("Dataset Sizes:", dataset_sizes)
+print("Preprocessing Time", preprocessing_times)
+print("Std Dev Preprocessing Time", stddev_preprocessing_times)
+# Plot Query Time vs Dataset Size
+plt.figure(figsize=(10, 5))
+plt.plot(dataset_sizes, preprocessing_times, color='Teal')
+# plt.fill_between(dataset_sizes, 
+#                 preprocessing_times - stddev_preprocessing_times, 
+#                 preprocessing_times + stddev_preprocessing_times , 
+#                 color='b', alpha=0.2, label='+- 1 Standard Deviation')
+plt.xlabel('Dataset Size')
+plt.ylabel('Pre-processing time')
+plt.title('Preprocessing Time vs Dataset Size')
+plt.grid(True)
+plt.savefig('Adatasetsizes/preprocessing.png')
+
+
+sys.exit()
 #------------------------------------------------------------------------------------------------------------------------
 # Find the optimal radius
 #------------------------------------------------------------------------------------------------------------------------
 radii = np.linspace(0.05, 0.5, 100)
 
-best_precision = 0
+
 best_radius = 0 
 best_recall = 0
+final_precision = 0
+final_f1_score = 0 
 
 recalls = []
+precisions = []
+f1_scores = []
 
 for radius in radii:
     true_positives = 0
@@ -204,99 +300,47 @@ for radius in radii:
 
             false_negatives += fn
 
+            fp = len(neighbor_labels) - true_positives
+
+            if fp < 0:
+                fp = 0
+
+            false_positives += fp
+
     if (true_positives + false_negatives) > 0:
         recall = true_positives / (true_positives + false_negatives)
     else:
         recall = 0
 
+    if (true_positives + false_positives) > 0:
+        precision = true_positives / (true_positives + false_positives) 
+    else:
+        precision = 0
+
+    if (precision + recall) > 0:
+        f1 = (2 * precision * recall) / (precision + recall)
+    else:
+        f1 = 0 
+
     recalls.append(recall)
+    precisions.append(precision)
+    f1_scores.append(f1)
+
     if recall >= best_recall:
         best_recall = recall
         best_radius = radius
+        final_precision = precision
+        final_f1_score = f1
 
         
-print(f"Best radius: {best_radius} with recall: {best_recall}")
+print(f"Best radius: {best_radius} with best recall: {best_recall}, precision:{precision} and f1_score:{f1}")
 
-
-        
-
-
-
-
-
-sys.exit()
-#------------------------------------------------------------------------------------------------------------------------
-# Find the optimal distance threshold for the knn method, using precision
-#------------------------------------------------------------------------------------------------------------------------
-
-# Range of thresholds to evaluate
-thresholds = np.linspace(0.01, 0.1, 100)
-
-# We set a large radius to capture all potential NNs
-nbrs = NearestNeighbors(metric='cosine', algorithm='brute', radius=1.0).fit(train_features)
-
-best_precision = 0
-best_threshold = 0 
-best_recall = 0
-
-precisions = []
-recalls = []
-for threshold in thresholds:
-        true_positives = 0
-        false_positives = 0
-        true_negatives = 0
-        false_negatives = 0 
-        
-        for query_index in range(len(train_features)):
-            distances, indices = nbrs.radius_neighbors([train_features[query_index]], sort_results=True)
-            print('distances:', distances)
-
-            distances = distances[0][1:] # remove first distance as it is itself
-            indices = indices[0][1:] # remove first index as it is itself
-
-            filtered_indices = [index for dist, index in zip(distances, indices) if dist < threshold]
-
-            if filtered_indices:
-                # For simplicity, use the most common label among neighbors as the prediction
-                neighbor_labels = train_labels[filtered_indices]
-                predicted_label = np.bincount(neighbor_labels).argmax()
-
-                true_label = train_labels[query_index]
-
-                if predicted_label == true_label:
-                    if predicted_label == 1:  # Assuming 1 is the positive class
-                        true_positives += 1
-                    else:
-                     true_negatives += 1
-
-                else:
-                    if predicted_label == 1:  # Predicted positive, but actually negative
-                        false_positives += 1
-                    else:  # Predicted negative, but actually positive
-                        false_negatives += 1
-
-
-        if true_positives + false_positives > 0:
-            precision = true_positives / (true_positives + false_positives)
-        else:
-            precision = 0
-
-        if true_positives + false_negatives > 0:
-            recall = true_positives / (true_positives + false_negatives)
-        else:
-            recall = 0
-
-        precisions.append(precision)
-        if precision >= best_precision:
-            best_precision = precision
-            best_threshold = threshold
-
-        # recalls.append(recall)
-        # if recall >= best_recall:
-        #     best_recall = recall
-        #     best_threshold = threshold
-
-print(f"Best threshold: {best_threshold} with precision: {best_precision}")
+np.save('Arecalls/recalls51.npy', recalls)
+np.save('Aprecisions/precisions51.npy', precisions)
+np.save('Af1scores/f1scores51.npy', f1_scores)
+# print('recalls:', recalls)
+# print('precisions:', precisions)
+# print('f1 scores:', f1_scores)
 
 
         
