@@ -253,7 +253,7 @@ f1_scores = []
 
 max_search_radius = 5
 
-TP =[]
+TP = []
 FP = []
 TN = []
 FN = []
@@ -312,34 +312,24 @@ for search_radius in range(max_search_radius):
 
             false_positives += fp
 
+    if (true_positives + false_negatives) > 0:
+        recall = true_positives / (true_positives + false_negatives)
+    else:
+        recall = 0
 
-TP.append(true_positives)
-FP.append(false_negatives)
-TN.append(true_negatives)
-FN.append(false_positives)
+    if (true_positives + false_positives) > 0:
+        precision = true_positives / (true_positives + false_positives) 
+    else:
+        precision = 0
 
+    if (precision + recall) > 0:
+        f1 = (2 * precision * recall) / (precision + recall)
+    else:
+        f1 = 0 
 
-
-
-if (TP + FN) > 0:
-    recall = TP / (TP + FN)
-else:
-    recall = 0
-
-if (true_positives + false_positives) > 0:
-    precision = true_positives / (true_positives + false_positives) 
-else:
-    precision = 0
-
-if (precision + recall) > 0:
-    f1 = (2 * precision * recall) / (precision + recall)
-else:
-    f1 = 0 
-
-
-recalls.append(recall)
-precisions.append(precision)
-f1_scores.append(f1)
+    recalls.append(recall)
+    precisions.append(precision)
+    f1_scores.append(f1)
 
 print('recalls:', recalls)
 print('precisions:', precisions)
