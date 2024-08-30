@@ -43,9 +43,9 @@ class CustomResNetExtractor(nn.Module):
 # Define Parameters and check dataloaders
 #--------------------------------------------------------------------------------------------------------------------------
 batch_size = 32
-torch.manual_seed(51)
-torch.cuda.manual_seed(51)
-torch.cuda.manual_seed_all(51)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 
 # Create train dataset
 root_dir = "/rds/user/sms227/hpc-work/dissertation/data/duplicatedata"
@@ -134,7 +134,7 @@ class LSH:
         # Encode bin index bits into integers
         bin_indices = bin_index_bits.dot(powers_of_two)
 
-        # Update `table` so that `table[i]` is the list of image ids with bin index equal to i.
+        # Update `table` so that `table[i]` is the list of document ids with bin index equal to i.
         for data_index, bin_index in enumerate(bin_indices):
             if bin_index not in table:
                 table[bin_index] = []
@@ -183,7 +183,7 @@ class LSH:
             return DataFrame({'id': [], 'distance': []})
 
         candidates = data[np.array(list(candidate_set), dtype=int), :]
-        
+
         nearest_neighbors = DataFrame({'id': list(candidate_set)})
 
         # Reshape query_vec to be a 2D array
@@ -191,106 +191,108 @@ class LSH:
         
         nearest_neighbors['distance'] = pairwise_distances(candidates, query_vec, metric='cosine').flatten()
 
-        # Sort by distance
-        nearest_neighbors = nearest_neighbors.sort_values(by='distance')
+        # Sort the DataFrame by the 'distance' column
+        nearest_neighbors = nearest_neighbors.sort_values(by='distance', ascending=True)
 
         return nearest_neighbors
 
 
 
-# Train LSH on the full training dataset
-lsh = LSH(train_features)
-lsh.train(num_vector=10, seed=42)
+# Function to show and save images
+def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
+    fig, axes = plt.subplots(1, len(neighbor_image_paths) + 1, figsize=(20, 5))
+    if len(neighbor_image_paths) + 1 == 1:
+        axes = [axes] 
+    
+    # fig, axes = plt.subplots(1, len(neighbor_image_paths) + 1, figsize=(20, 5))
+    fig.suptitle('Query Image and Nearest Neighbors', fontsize=16)
 
-# Find the nearest neighbours
-query_index = 50
-query_vec = train_features[query_index]
-all_neighbors = lsh.query(query_vec, 0)
-print('==============true label==================')
-true_label = train_labels[query_index]
-print('true label:', true_label)
+    # Display query image
+    query_img = Image.open(query_image_path)
+    axes[0].imshow(query_img)
+    axes[0].set_title('Query Image')
+    axes[0].axis('off')
 
-imgs_to_plot = []
-imgs_to_plot.append(train_img_paths[query_index])
-print('==============neigbour label==================')
-neighbor_labels = [train_labels[i] for i in all_neighbors['id']]
-print('neighbor labels:',neighbor_labels)
+    # Display nearest neighbor images
+    for i, neighbor_image_path in enumerate(neighbor_image_paths):
+        neighbor_img = Image.open(neighbor_image_path)
+        axes[i + 1].imshow(neighbor_img)
+        axes[i + 1].set_title(f'Neighbor {i+1}')
+        axes[i + 1].axis('off')
 
-neighbor_paths = [train_img_paths[i] for i in neighbor_labels]
-imgs_to_plot.extend(neighbor_paths)
-print('images to plot:', imgs_to_plot)
-print('=========== PLOTTING IMAGES ============')
-# Number of images
-num_images = len(imgs_to_plot)
+    # Save the plot
+    plt.savefig(save_path)
+    plt.close(fig)
 
-# Maximum number of columns
-max_cols = 5
-rows = math.ceil(num_images / max_cols)  # Calculate the number of rows needed
-
-# Create a figure with a dynamic grid of subplots (multiple rows if needed)
-fig, axes = plt.subplots(rows, min(num_images, max_cols), figsize=(min(num_images, max_cols) * 5, rows * 5))  # Adjust figsize as needed
-
-# Flatten axes array for easier iteration if grid has more than 1 row
-axes = axes.flatten() if num_images > 1 else [axes]
-
-# Loop through each image path and plot them
-for i, img_path in enumerate(imgs_to_plot):
-    img = Image.open(img_path)  # Open the image
-    axes[i].imshow(img)  # Display the image
-    axes[i].axis('off')  # Hide the axes
-
-    # Add labels
-    if i == 0:
-        axes[i].set_title("Query Image")
-    else:
-        axes[i].set_title(f"Neighbour {i}")
-
-# Hide any unused subplots
-for j in range(i + 1, len(axes)):
-    axes[j].axis('off')
-
-# Show the plot with all images
-plt.savefig('Bplotslsh/query50noft.png')
-
-sys.exit()
-
-# #----------------------------------------------------------------------------------------------------------------------------
-# Find best search radius 
 #----------------------------------------------------------------------------------------------------------------------------
-radii = range(0,10)
+# Implementation
+#----------------------------------------------------------------------------------------------------------------------------
+# Initialize LSH with extracted features
+# lsh = LSH(train_features)
+# lsh.train(num_vector=16, seed=42)  # Informed by literature
+# max_search_radius = 0
+# query_vec = train_features[0]
+# all_neighbors = lsh.query(query_vec, max_search_radius)
+# print(all_neighbors)
+# print(query_vec)
 
+# sys.exit()
+# Define the root directory where images are stored
+save_dir = "lshplotscorrected/"
+
+# Ensure the save directory exists
+os.makedirs(save_dir, exist_ok=True)
+
+#----------------------------------------------------------------------------------------------------------------------------
+# Try to optimise the search radius
+#----------------------------------------------------------------------------------------------------------------------------
 recalls = []
 precisions = []
 f1_scores = []
-neighbor_labels = []
+# Iterate through each data point in the test set
 
-best_radius = 0 
-best_recall = 0
-final_precision = 0
-final_f1_score = 0 
+max_search_radius = 5
 
-for radius in radii:
+TP =[]
+FP = []
+TN = []
+FN = []
+
+for search_radius in range(max_search_radius):
+    lsh = LSH(train_features)
+    lsh.train(num_vector=16, seed=42)  # Informed by literature
+    print('search_radius:', search_radius)
+    correct = 0 
+    curve = []
     true_positives = 0
     false_positives = 0
     true_negatives = 0
     false_negatives = 0 
 
-    lsh = LSH(train_features)
-    lsh.train(num_vector=10, seed=51)
-    
     for query_index in range(len(train_features)):
-        
-        query_vec = train_features[query_index]
-        all_neighbors = lsh.query(query_vec, radius)
-        all_neighbors = all_neighbors.iloc[1:]
 
-        true_label = train_labels[query_index] # true label of image
-        neighbor_labels = [train_labels[i] for i in all_neighbors['id']]  # add all neighbor labels to a list
+        num_correct = train_label_counts[query_index]
 
-        # Apply same logic as to kNN to determine metrics
+        query_vec = train_features[query_index]  # Use the query vector from the data
+        # print('query vector:', query_vec)
 
-        if len(neighbor_labels) > 0:
-            for label in neighbor_labels:
+        all_neighbors = lsh.query(query_vec, search_radius)
+        # print(all_neighbors)
+
+        # Ensure the indices are integers
+        indices = all_neighbors['id'].astype(int).tolist()
+        distances = all_neighbors['distance'].tolist()
+        # print('indices:', indices)
+        # print('distances:', distances)
+
+        # Get the image paths of the query and its nearest neighbors
+        query_image_path = os.path.join(root_dir, train_img_paths[query_index])
+        neighbor_image_paths = [os.path.join(root_dir, train_img_paths[idx]) for idx in indices]
+
+        true_label = train_labels[query_index]
+
+        if len(indices) > 0:
+            for label in indices:
                 if label == true_label:
                     true_positives +=1 
                 else:
@@ -303,46 +305,53 @@ for radius in radii:
 
             false_negatives += fn
 
-            fp = len(neighbor_labels) - true_positives
+            fp = len(indices) - true_positives
 
             if fp < 0:
                 fp = 0
 
             false_positives += fp
 
-    if (true_positives + false_negatives) > 0:
-        recall = true_positives / (true_positives + false_negatives)
-    else:
-        recall = 0
 
-    if (true_positives + false_positives) > 0:
-        precision = true_positives / (true_positives + false_positives) 
-    else:
-        precision = 0
+TP.append(true_positives)
+FP.append(false_negatives)
+TN.append(true_negatives)
+FN.append(false_positives)
 
-    if (precision + recall) > 0:
-        f1 = (2 * precision * recall) / (precision + recall)
-    else:
-        f1 = 0 
 
-    recalls.append(recall)
-    precisions.append(precision)
-    f1_scores.append(f1)
 
-    if recall >= best_recall:
-    #if precision >= final_precision:
-        best_recall = recall
-        best_radius = radius
-        final_precision = precision
-        final_f1_score = f1
-        
-print(f"Best radius: {best_radius} with best recall: {best_recall}, precision:{final_precision} and f1_score:{final_f1_score}")
 
-# np.save('Brecalls/recalls51.npy', recalls)
-# np.save('Bprecisions/precisions51.npy', precisions)
-# np.save('Bf1scores/f1scores51.npy', f1_scores)
+if (TP + FN) > 0:
+    recall = TP / (TP + FN)
+else:
+    recall = 0
 
-          
-    
+if (true_positives + false_positives) > 0:
+    precision = true_positives / (true_positives + false_positives) 
+else:
+    precision = 0
+
+if (precision + recall) > 0:
+    f1 = (2 * precision * recall) / (precision + recall)
+else:
+    f1 = 0 
+
+
+recalls.append(recall)
+precisions.append(precision)
+f1_scores.append(f1)
+
+print('recalls:', recalls)
+print('precisions:', precisions)
+print('f1 scores:', f1_scores)
+
+
+
+
+
+
+
+
+
     
 
