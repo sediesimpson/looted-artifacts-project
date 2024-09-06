@@ -82,8 +82,10 @@ torch.cuda.manual_seed_all(42)
 # Create train dataset
 root_dir = "/rds/user/sms227/hpc-work/dissertation/data/duplicatedata"
 train_dataset = CustomImageDatasetTrain(root_dir)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+test_dataset = CustomImageDatasetTest(root_dir)
 
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 #--------------------------------------------------------------------------------------------------------------------------
 # Load checkpoints from trained model with updated weights
 #--------------------------------------------------------------------------------------------------------------------------
@@ -130,6 +132,8 @@ def extract_features(dataloader, model, device):
 
 # Extract features for training and validation sets
 train_features, train_labels, train_img_paths, train_label_counts = extract_features(train_loader, model, device)
+
+test_features, test_labels, test_img_paths, test_label_counts = extract_features(test_loader, model, device)
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Define LSH CLASS
@@ -182,19 +186,8 @@ class LSH:
         #print('in search bins function, the search radius:', search_radius)
         num_vector = self.model['num_vector']
         powers_of_two = 1 << np.arange(num_vector - 1, -1, -1)
-        buckets = self.model["bin_indices"]
 
-        query = query_bin_bits.dot(powers_of_two)
-        for bucket in buckets:
-            hamming = query - bucket
-            # if the hamming is zero or a power of two, then we have a 
-            if (hamming & (hamming-1) == 0):
-
-
-
-        # candidate_set = copy(initial_candidates)
-        candidate_set = set()
-
+        candidate_set = copy(initial_candidates)
 
         for different_bits in combinations(range(num_vector), search_radius):
             #print('Different bits:', different_bits)
@@ -238,12 +231,53 @@ class LSH:
         # Reshape query_vec to be a 2D array
         query_vec = query_vec.reshape(1, -1)
         
-        # We actually don't care here which are the nearest, this should be optional
-        # All we are care about is getting the distances we believe are the same
-        # nearest_neighbors['distance'] = pairwise_distances(candidates, query_vec, metric='cosine').flatten()
+        nearest_neighbors['distance'] = pairwise_distances(candidates, query_vec, metric='cosine').flatten()
 
         # Sort the DataFrame by the 'distance' column
-        # nearest_neighbors = nearest_neighbors.sort_values(by='distance', ascending=True)
+        #nearest_neighbors = nearest_neighbors.sort_values(by='distance', ascending=True)
+
+        return nearest_neighbors
+
+    def hamming_weight(self, x):
+        x -= (x >> 1) & 0x5555555555555555
+        x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
+        x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f
+        return ((x * 0x0101010101010101) & 0xffffffffffffffff ) >> 56
+
+    def query2(self, query_vec, max_search_radius):
+        if not self.model:
+            raise ValueError('Model not yet built. Exiting!')
+
+        table = self.model['table']
+        random_vectors = self.model['random_vectors']
+        buckets = self.model['bin_indices']
+        num_vector = self.model['num_vector']
+
+        powers_of_two = 1 << np.arange(num_vector - 1, -1, -1)
+        query_vec = (query_vec.dot(random_vectors) >= 0).flatten()
+        query = query_vec.dot(powers_of_two).item()
+
+
+        candidate_set = set()
+
+        for bucket in buckets:
+            hamming = query ^ bucket
+            hamming = hamming.item()
+            # print('hamming:',type(hamming))
+            # print('bucket:', bucket)
+            hw = self.hamming_weight(hamming)
+            
+            if hw <= max_search_radius:
+                candidate_set.update(table[bucket])
+
+        # Ensure the indices are integers before using them
+        candidate_set = set(map(int, candidate_set))
+
+        # Handle the case where no candidates are found
+        if not candidate_set:
+            return DataFrame({'id': [], 'distance': []})
+
+        nearest_neighbors = DataFrame({'id': list(candidate_set)})
 
         return nearest_neighbors
 
@@ -283,13 +317,17 @@ def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
     plt.close(fig)
 
 
-# # Train LSH on the full training dataset
+# Train LSH on the full training dataset
 # lsh = LSH(train_features)
 # lsh.train(num_vector=16, seed=42)
-# query_index = 10
+# query_index = 20
 # max_search_radius = 1
-# query_vec = train_features[10]
+# query_vec = train_features[query_index]
 # all_neighbors = lsh.query(query_vec, max_search_radius)
+# all_neighbors2 = lsh.query2(query_vec, max_search_radius)
+# print(all_neighbors)
+# print(all_neighbors2)
+
 
 # indices = all_neighbors['id'].astype(int).tolist()
 # distances = all_neighbors['distance'].tolist()
@@ -435,54 +473,120 @@ def show_images_and_save(query_image_path, neighbor_image_paths, save_path):
 #----------------------------------------------------------------------------------------------------------------------------
 # Figuring out query time
 #----------------------------------------------------------------------------------------------------------------------------
-save_dir = 'Adatasetsizes/'
-# Initialize lists to store dataset sizes and query times
-dataset_sizes = []
-query_times = []
+# save_dir = 'Adatasetsizes/'
+# # Initialize lists to store dataset sizes and query times
+# dataset_sizes = []
+# query_times = []
 
-subset_sizes = range(50,900,50)
+# subset_sizes1 = range(10,100,10)
+# subset_sizes2 = range(100,1000,100)
+# subset_sizes3 = range(1000,3500,500)
+# subset_sizes = np.concatenate((subset_sizes1, subset_sizes2, subset_sizes3))
 
-# Number of queries to average for each subset size
-num_queries = 10
+# # Number of queries to average for each subset size
+# num_queries = 10
 
-lsh = LSH(train_features)
-lsh.train(num_vector=16, seed=42)
-
-
-# Iterate through each subset size
-for subset_size in subset_sizes:
-    # Subset the test dataset
-    subset_indices = np.random.choice(len(train_features), subset_size, replace=False)
-    subset_train_features = train_features[subset_indices]
+# lsh = LSH(train_features)
+# lsh.train(num_vector=16, seed=42)
 
 
-      # Measure the query times for multiple queries
-    total_query_time = 0
-    for _ in range(num_queries):
-
-        start_time = time.time()
-
-        for query_index in range(len(subset_train_features)):
-             # Find all the neighbors
-            query_vec = subset_train_features[query_index]
-            max_search_radius = 1
-            all_neighbors = lsh.query(query_vec, max_search_radius)
+# # Iterate through each subset size
+# for subset_size in subset_sizes:
+#     # Subset the test dataset
+#     subset_indices = np.random.choice(len(train_features), subset_size, replace=False)
+#     subset_train_features = train_features[subset_indices]
+#     print(f'subset size:{subset_size}, subset train features:{len(subset_train_features)}')
 
 
-        # End time for the query
-        end_time = time.time()
-        query_time = end_time - start_time
 
-        # Accumulate the query time
-        total_query_time += query_time
+#       # Measure the query times for multiple queries
+#     total_query_time = 0
+#     for _ in range(num_queries):
 
-    # Calculate the average query time for this subset size
-    average_query_time = total_query_time / num_queries
-    dataset_sizes.append(subset_size)
-    query_times.append(average_query_time)
+#         start_time = time.time()
 
-    print(f"Subset Size: {subset_size}, Average Query Time: {average_query_time}")
+#         for query_index in range(len(subset_train_features)):
+#              # Find all the neighbors
+#             query_vec = subset_train_features[query_index]
+#             max_search_radius = 1
+#             all_neighbors = lsh.query2(query_vec, max_search_radius)
 
-# Optionally, you can save the dataset_sizes and query_times for further analysis
-np.save(os.path.join(save_dir, "dataset_sizes_LSH_FT.npy"), np.array(dataset_sizes))
-np.save(os.path.join(save_dir, "query_times_LSH_FT.npy"), np.array(query_times))
+
+#         # End time for the query
+#         end_time = time.time()
+#         query_time = end_time - start_time
+
+#         # Accumulate the query time
+#         total_query_time += query_time
+
+#     # Calculate the average query time for this subset size
+#     average_query_time = total_query_time / num_queries
+#     dataset_sizes.append(subset_size)
+#     query_times.append(average_query_time)
+
+#     print(f"Subset Size: {subset_size}, Average Query Time: {average_query_time}")
+
+# # Optionally, you can save the dataset_sizes and query_times for further analysis
+# np.save(os.path.join(save_dir, "dataset_sizes_LSH_FT3.npy"), np.array(dataset_sizes))
+# np.save(os.path.join(save_dir, "query_times_LSH_FT3.npy"), np.array(query_times))
+
+
+#----------------------------------------------------------------------------------------------------------------------------
+# Testing the precision and recall for LSH 
+#----------------------------------------------------------------------------------------------------------------------------
+true_positives = 0
+false_positives = 0
+true_negatives = 0
+false_negatives = 0 
+precision = 0
+recall = 0
+
+lsh = LSH(test_features)
+lsh.train(num_vector=16, seed=42) 
+
+for query_index in range(len(test_features)):
+    max_search_radius = 1
+    query_vec = test_features[query_index]
+    all_neighbors = lsh.query2(query_vec, max_search_radius)
+
+    indices = all_neighbors['id'].astype(int).tolist()
+    true_label = test_labels[query_index]
+    neighbor_labels = test_labels[indices]
+
+    if len(indices)> 0:
+        for label in neighbor_labels:
+            if label == true_label:
+                true_positives +=1 
+
+        fn = test_label_counts[query_index] - true_positives
+
+        if fn < 0:
+            fn = 0
+
+        false_negatives += fn
+
+        tn = len(test_features) - false_negatives
+
+        if tn < 0: 
+            tn = 0 
+
+        true_negatives += tn
+
+        fp = len(neighbor_labels) - true_positives
+
+        if fp < 0:
+            fp = 0
+
+        false_positives += fp
+
+if (true_positives + false_negatives) > 0:
+    recall = true_positives / (true_positives + false_negatives)
+else:
+    recall = 0
+
+if (true_positives + false_positives) > 0:
+    precision = true_positives / (true_positives + false_positives) 
+else:
+    precision = 0
+
+print(f'True positives:{true_positives}, false positives:{false_positives}, true negatives: {true_negatives}, false negatives = {false_negatives}, recall: {recall}, precision:{precision}')
