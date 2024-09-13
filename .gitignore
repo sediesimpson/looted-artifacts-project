@@ -29,3 +29,8 @@ datasetsizes/
 datasetsizes*
 lshcifar
 lshcifar*
+Output/
+Output/*
+Output*
+scripts/
+scripts/*
